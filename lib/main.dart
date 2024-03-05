@@ -29,21 +29,67 @@ class MyApp extends StatelessWidget {
 
 class GraphView extends StatefulWidget {
   GraphView({super.key});
-  String title = "node title";
-  String mainText = "node main text";
 
   @override
   State<GraphView> createState() => _GraphViewState();
 }
 
 class _GraphViewState extends State<GraphView> {
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text('Flutter Demo title'),
+      ),
+      body: SingleChildScrollView(
+        child: ChangeNotifierProvider(
+          create: (context) => GraphState(),
+          child: Consumer<GraphState>(
+            builder: (context, graphState, child) => Stack(
+              children: [
+                    // Use SomeExpensiveWidget here, without rebuilding every time.
+                    if (child != null) child,
+                    Container(
+                      height: 1000,
+                    ),
+                  ] +
+                  graphState.nodeLayout.entries
+                      .map((MapEntry<Node, vector_math.Vector2> entry) => NodeView(node: entry.key, positionX: entry.value[0], positionY: entry.value[1])
+                      )
+                      .toList().cast<Widget>()
+                      ,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class NodeView extends StatefulWidget {
+  Node node;
+  double positionX = 0.0;
+  double positionY = 0.0;
+
+  NodeView({
+    required this.node,
+    required this.positionX,
+    required this.positionY,
+  });
+  @override
+  State<NodeView> createState() => _NodeViewState();
+}
+
+class _NodeViewState extends State<NodeView> {
   late TextEditingController _titleController;
   late TextEditingController _mainTextController;
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.title);
-    _mainTextController = TextEditingController(text: widget.mainText);
+    _titleController = TextEditingController(text: Provider.of<GraphState>(context, listen: false).titles[widget.node]);
+    _mainTextController = TextEditingController(text: Provider.of<GraphState>(context, listen: false).mainTexts[widget.node]);
   }
 
   @override
@@ -79,12 +125,12 @@ class _GraphViewState extends State<GraphView> {
   }
 
   void _createTextEditWindow(BuildContext context) {
-    String pre_title = widget.title;
-    String pre_main_text = widget.mainText;
+    String pre_title = _titleController.text;
+    String pre_main_text = _mainTextController.text;
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (context2) {
         return AlertDialog(
           title: Text('Edit Node'),
           content: Column(
@@ -104,11 +150,9 @@ class _GraphViewState extends State<GraphView> {
           actions: [
             ElevatedButton(
               onPressed: () {
-                setState(() {
-                  widget.title = _titleController.text;
-                  widget.mainText = _mainTextController.text;
-                });
-                Navigator.of(context).pop();
+                Provider.of<GraphState>(context, listen: false).titles[widget.node] = _titleController.text;
+                Provider.of<GraphState>(context, listen: false).mainTexts[widget.node] = _mainTextController.text;
+                Navigator.of(context2).pop();
               },
               child: Text('Save'),
             ),
@@ -118,7 +162,7 @@ class _GraphViewState extends State<GraphView> {
                   _titleController.text = pre_title;
                   _mainTextController.text = pre_main_text;
                 });
-                Navigator.of(context).pop();
+                Navigator.of(context2).pop();
               },
               child: Text('Cancel'),
             ),
@@ -127,50 +171,24 @@ class _GraphViewState extends State<GraphView> {
       },
     );
   }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text('Flutter Demo title'),
-      ),
-      body: SingleChildScrollView(
-        child: ChangeNotifierProvider(
-          create: (context) => GraphState(),
-          child: Consumer<GraphState>(
-            builder: (context, graphState, child) => Stack(
-              children: [
-                    // Use SomeExpensiveWidget here, without rebuilding every time.
-                    if (child != null) child,
-                    Container(
-                      height: 1000,
-                    ),
-                  ] +
-                  graphState.nodeLayout.entries
-                      .map((MapEntry<Node, vector_math.Vector2> entry) => Positioned(
-                          left: entry.value[0],
-                          top: entry.value[1],
+    return Positioned(
+                          left: widget.positionX,
+                          top: widget.positionY,
                           child: SizedBox(
                               width: 100,
                               height: 50,
                               child: FloatingActionButton(
                                   child: GestureDetector(
                                     onSecondaryTap: () {
-                                      _showOptions(context, IntegerNode(entry.key.hashCode));
+                                      _showOptions(context, IntegerNode(widget.node.hashCode));
                                     },
-                                    child: const Text('new node'),
+                                    child: Text(Provider.of<GraphState>(context, listen: false).titles[widget.node] ?? 'init'),
                                   ),
                                   tooltip: 'Increment',
                                   onPressed: () {
                                     _createTextEditWindow(context);
-                                  }))))
-                      .toList().cast<Widget>()
-                      ,
-            ),
-          ),
-        ),
-      ),
-    );
+                                  })));
   }
 }
