@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'line_painter.dart';
 import 'graph_state.dart';
+import 'package:graph_layout/graph_layout.dart';
+import 'package:vector_math/vector_math.dart' as vector_math;
 
 void main() {
   runApp(MyApp());
@@ -51,7 +53,7 @@ class _GraphViewState extends State<GraphView> {
     super.dispose();
   }
 
-  void _showOptions(BuildContext context, List<double> node) {
+  void _showOptions(BuildContext context, IntegerNode node) {
     final RenderBox button = context.findRenderObject() as RenderBox;
     final Offset offset = button.localToGlobal(Offset.zero);
 
@@ -145,17 +147,17 @@ class _GraphViewState extends State<GraphView> {
                       height: 1000,
                     ),
                   ] +
-                  graphState.graph_nodes
-                      .map((node) => Positioned(
-                          left: node[0],
-                          top: node[1],
+                  graphState.nodeLayout.entries
+                      .map((MapEntry<Node, vector_math.Vector2> entry) => Positioned(
+                          left: entry.value[0],
+                          top: entry.value[1],
                           child: SizedBox(
                               width: 100,
                               height: 50,
                               child: FloatingActionButton(
                                   child: GestureDetector(
                                     onSecondaryTap: () {
-                                      _showOptions(context, node);
+                                      _showOptions(context, IntegerNode(entry.key.hashCode));
                                     },
                                     child: const Text('new node'),
                                   ),
@@ -163,7 +165,8 @@ class _GraphViewState extends State<GraphView> {
                                   onPressed: () {
                                     _createTextEditWindow(context);
                                   }))))
-                      .toList(),
+                      .toList().cast<Widget>()
+                      ,
             ),
           ),
         ),
