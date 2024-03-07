@@ -78,9 +78,9 @@ class GraphState extends ChangeNotifier {
     final graph = Graph.fromEdgeList(_edgeList.map((edge) => edge as Edge).toSet());
     final layoutAlgorithm = FruchtermanReingold(graph: graph);
     layoutAlgorithm.updateLayoutParameters(
-      width: 300,
-      height: 400,
-      nodeRadius: 10,
+      width: 1000,//应该同步等于画布大小
+      height: 1000,
+      nodeRadius: 5,
     );
     layoutAlgorithm.computeLayout();
     for (final nodeLayout in layoutAlgorithm.nodeLayout.entries) {
