@@ -98,7 +98,7 @@ class GraphState extends ChangeNotifier {
   List<IntegerNodeWithJson> get graph_nodes => _graph_nodes;
   Set<EdgeWithJson> get edgeList => _edgeList;
   GraphState() {
-    _nodeLayout[IntegerNodeWithJson(0)] = Vector2(1, 1);
+    _nodeLayout[IntegerNodeWithJson(0)] = Vector2(100.0, 50.0);
     titles[IntegerNodeWithJson(0)] = title;
     mainTexts[IntegerNodeWithJson(0)] = mainText;
   }

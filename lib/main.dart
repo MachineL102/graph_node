@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'line_painter.dart';
@@ -98,6 +99,7 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    //ShortcutManager.init(context); // 初始化快捷键监听器
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
@@ -116,72 +118,156 @@ class GraphView extends StatefulWidget {
   State<GraphView> createState() => _GraphViewState();
 }
 
+class SaveIntent extends Intent {
+  const SaveIntent();
+}
+
+class SaveAction extends Action<SaveIntent> {
+  SaveAction(this.context, this.graphState);
+  final BuildContext context;
+  final GraphState graphState;
+  @override
+  void invoke(SaveIntent intent) {
+    String json = jsonEncode(graphState);
+    GraphState gg = GraphState.fromJson(json);
+    final snackBar = SnackBar(
+      content: Text('保存成功'),
+      duration: Duration(seconds: 2),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+}
+
 class _GraphViewState extends State<GraphView> {
+  final controlS = SingleActivator(LogicalKeyboardKey.keyS, control: true);
+
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => GraphState(),
-      child: Consumer<GraphState>(
-        builder: (context, graphState, child) => Scaffold(
-          appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-            title: Text('Flutter Demo title'),
-            actions: [
-              IconButton(
-                icon: Icon(Icons.file_copy),
-                onPressed: () {
-                  // 点击“文件”按钮时的操作
-                  print('文件按钮被点击');
-                },
-              ),
-              IconButton(
-                icon: Icon(Icons.edit),
-                onPressed: () {
-                  String json = jsonEncode(graphState);
-                  GraphState gg = GraphState.fromJson(json);
-                  print(gg);
-                  print('编辑按钮被点击');
-                },
-              ),
-            ],
-          ),
-          body: SingleChildScrollView(
-            child: Stack(
-              children: [
-                    // Use SomeExpensiveWidget here, without rebuilding every time.
-                    if (child != null) child,
-                    Container(
-                      height: 1000,
+    return Shortcuts(
+      shortcuts:<LogicalKeySet, Intent>{
+      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS):
+          const SaveIntent(),
+    },
+      child: ChangeNotifierProvider(
+        create: (context) => GraphState(),
+        child: Consumer<GraphState>(
+          builder: (context, graphState, child) => Actions(
+            actions: <Type, Action<Intent>>{
+              // ModifyIntent: ModifyAction(model),
+              SaveIntent: SaveAction(context, graphState),
+            },
+            child: Builder(
+              builder: (BuildContext context) {
+                return Scaffold(
+                  appBar: AppBar(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.inversePrimary,
+                    leading: Builder(
+                      builder: (BuildContext context) {
+                        return IconButton(
+                          icon: const Icon(Icons.menu),
+                          onPressed: () {
+                            Scaffold.of(context).openDrawer();
+                          },
+                          tooltip: MaterialLocalizations.of(context)
+                              .openAppDrawerTooltip,
+                        );
+                      },
                     ),
-                  ] +
-                  graphState.nodeLayout.entries
-                      .map((MapEntry<Node, vector_math.Vector2> entry) =>
-                          NodeView(
-                              node: entry.key,
-                              positionX: entry.value[0] - 50.0,
-                              positionY: entry.value[1] - 25.0))
-                      .toList()
-                      .cast<Widget>() +
-                  graphState.edgeList
-                      .map((edge) {
-                        LineSegment ls = calculateAvoidingRectangle(
-                          graphState.nodeLayout[edge.left] ??
-                              vector_math.Vector2(0, 0),
-                          Rectangle(100.0, 50.0),
-                          graphState.nodeLayout[edge.right] ??
-                              vector_math.Vector2(0, 0),
-                          Rectangle(100.0, 50.0),
-                        );
+                    actions: [
+                      IconButton(
+                        icon: Icon(Icons.file_copy),
+                        onPressed: () {
+                          // 点击“文件”按钮时的操作
+                          print('文件按钮被点击');
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.edit),
+                        onPressed: () {
+                          String json = jsonEncode(graphState);
+                          GraphState gg = GraphState.fromJson(json);
+                          print(gg);
+                          print('编辑按钮被点击');
+                        },
+                      ),
+                    ],
+                  ),
+                  drawer: Drawer(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: <Widget>[
+                        DrawerHeader(
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                          ),
+                          child: Text(
+                            '抽屉菜单',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                            ),
+                          ),
+                        ),
+                        ListTile(
+                          title: Text('选项1'),
+                          onTap: () {
+                            // 在这里处理选项1的点击事件
+                          },
+                        ),
+                        ListTile(
+                          title: Text('选项2'),
+                          onTap: () {
+                            // 在这里处理选项2的点击事件
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  body: SingleChildScrollView(
+                    child: Stack(
+                      children: [
+                            // Use SomeExpensiveWidget here, without rebuilding every time.
+                            if (child != null) child,
+                            Container(
+                              height: 1000,
+                            ),
+                          ] +
+                          graphState.nodeLayout.entries
+                              .map(
+                                  (MapEntry<Node, vector_math.Vector2> entry) =>
+                                      NodeView(
+                                          node: entry.key,
+                                          positionX: entry.value[0] - 50.0,
+                                          positionY: entry.value[1] - 25.0))
+                              .toList()
+                              .cast<Widget>() +
+                          graphState.edgeList
+                              .map((edge) {
+                                LineSegment ls = calculateAvoidingRectangle(
+                                  graphState.nodeLayout[edge.left] ??
+                                      vector_math.Vector2(0, 0),
+                                  Rectangle(100.0, 50.0),
+                                  graphState.nodeLayout[edge.right] ??
+                                      vector_math.Vector2(0, 0),
+                                  Rectangle(100.0, 50.0),
+                                );
 
-                        return CustomPaint(
-                          painter: LinePainter(
-                              startPoint: ui.Size(ls.start[0], ls.start[1]),
-                              endPoint: ui.Size(ls.end[0], ls.end[1]),
-                              directed: graphState.directions[edge] ?? false),
-                        );
-                      })
-                      .toList()
-                      .cast<Widget>(),
+                                return CustomPaint(
+                                  painter: LinePainter(
+                                      startPoint:
+                                          ui.Size(ls.start[0], ls.start[1]),
+                                      endPoint: ui.Size(ls.end[0], ls.end[1]),
+                                      directed:
+                                          graphState.directions[edge] ?? false),
+                                );
+                              })
+                              .toList()
+                              .cast<Widget>(),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
