@@ -9,6 +9,77 @@ import 'package:vector_math/vector_math.dart' as vector_math;
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:async';
+import 'package:file_picker/file_picker.dart';
+
+Future<String> openFilePicker() async {
+  try {
+    // 使用FilePicker选择文件
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+
+    if (result != null) {
+      // 获取所选文件的路径
+      String filePath = result.files.single.path!;
+
+      // 处理所选文件
+      print('已选择文件：$filePath');
+      return filePath;
+    } else {
+      // 用户取消了文件选择
+      print('用户取消了文件选择');
+    }
+  } catch (e) {
+    // 处理异常
+    print('发生错误：$e');
+  }
+  return '';
+}
+
+Future<String> openSavePicker() async {
+  try {
+    // 使用FilePicker选择文件
+    String? outputFile = await FilePicker.platform.saveFile(
+      dialogTitle: 'Please select an output file:',
+      fileName: 'output-file.json',
+    );
+
+    if (outputFile == null) {
+      // User canceled the picker
+    } else {
+      // 用户取消了文件选择
+      print('用户保存到$outputFile');
+      return outputFile;
+    }
+  } catch (e) {
+    // 处理异常
+    print('发生错误：$e');
+  }
+  return '';
+}
+
+Future<void> saveToFile(String content, String fileName) async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final File file = File('${directory.path}/$fileName');
+
+  // 写入字符串到文件
+  await file.writeAsString(content);
+
+  print('文件保存成功：${file.path}');
+}
+
+Future<void> saveToPath(String content, String path) async {
+  final File file = File('$path');
+
+  // 写入字符串到文件
+  await file.writeAsString(content);
+
+  print('文件保存成功：${file.path}');
+}
 
 void main() {
   runApp(MyApp());
@@ -129,6 +200,10 @@ class SaveAction extends Action<SaveIntent> {
   @override
   void invoke(SaveIntent intent) {
     String json = jsonEncode(graphState);
+    openSavePicker().then((file) {
+    print('1111111111111');
+    saveToPath(json, file);
+    });
     GraphState gg = GraphState.fromJson(json);
     final snackBar = SnackBar(
       content: Text('保存成功'),
@@ -139,15 +214,12 @@ class SaveAction extends Action<SaveIntent> {
 }
 
 class _GraphViewState extends State<GraphView> {
-  final controlS = SingleActivator(LogicalKeyboardKey.keyS, control: true);
-
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
-      shortcuts:<LogicalKeySet, Intent>{
-      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS):
-          const SaveIntent(),
-    },
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.keyS, control: true): SaveIntent(),
+      },
       child: ChangeNotifierProvider(
         create: (context) => GraphState(),
         child: Consumer<GraphState>(
@@ -224,46 +296,49 @@ class _GraphViewState extends State<GraphView> {
                       ],
                     ),
                   ),
-                  body: SingleChildScrollView(
-                    child: Stack(
-                      children: [
-                            // Use SomeExpensiveWidget here, without rebuilding every time.
-                            if (child != null) child,
-                            Container(
-                              height: 1000,
-                            ),
-                          ] +
-                          graphState.nodeLayout.entries
-                              .map(
-                                  (MapEntry<Node, vector_math.Vector2> entry) =>
-                                      NodeView(
-                                          node: entry.key,
-                                          positionX: entry.value[0] - 50.0,
-                                          positionY: entry.value[1] - 25.0))
-                              .toList()
-                              .cast<Widget>() +
-                          graphState.edgeList
-                              .map((edge) {
-                                LineSegment ls = calculateAvoidingRectangle(
-                                  graphState.nodeLayout[edge.left] ??
-                                      vector_math.Vector2(0, 0),
-                                  Rectangle(100.0, 50.0),
-                                  graphState.nodeLayout[edge.right] ??
-                                      vector_math.Vector2(0, 0),
-                                  Rectangle(100.0, 50.0),
-                                );
+                  body: Focus(
+                    autofocus: true,
+                    child: SingleChildScrollView(
+                      child: Stack(
+                        children: [
+                              // Use SomeExpensiveWidget here, without rebuilding every time.
+                              if (child != null) child,
+                              Container(
+                                height: 1000,
+                              ),
+                            ] +
+                            graphState.nodeLayout.entries
+                                .map((MapEntry<Node, vector_math.Vector2>
+                                        entry) =>
+                                    NodeView(
+                                        node: entry.key,
+                                        positionX: entry.value[0] - 50.0,
+                                        positionY: entry.value[1] - 25.0))
+                                .toList()
+                                .cast<Widget>() +
+                            graphState.edgeList
+                                .map((edge) {
+                                  LineSegment ls = calculateAvoidingRectangle(
+                                    graphState.nodeLayout[edge.left] ??
+                                        vector_math.Vector2(0, 0),
+                                    Rectangle(100.0, 50.0),
+                                    graphState.nodeLayout[edge.right] ??
+                                        vector_math.Vector2(0, 0),
+                                    Rectangle(100.0, 50.0),
+                                  );
 
-                                return CustomPaint(
-                                  painter: LinePainter(
-                                      startPoint:
-                                          ui.Size(ls.start[0], ls.start[1]),
-                                      endPoint: ui.Size(ls.end[0], ls.end[1]),
-                                      directed:
-                                          graphState.directions[edge] ?? false),
-                                );
-                              })
-                              .toList()
-                              .cast<Widget>(),
+                                  return CustomPaint(
+                                    painter: LinePainter(
+                                        startPoint:
+                                            ui.Size(ls.start[0], ls.start[1]),
+                                        endPoint: ui.Size(ls.end[0], ls.end[1]),
+                                        directed: graphState.directions[edge] ??
+                                            false),
+                                  );
+                                })
+                                .toList()
+                                .cast<Widget>(),
+                      ),
                     ),
                   ),
                 );
