@@ -37,6 +37,8 @@ dependencies:
   cupertino_icons: ^1.0.6
   provider: ^6.1.2
   graph_layout: ^0.1.1
+  file_picker: ^6.2.0
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:

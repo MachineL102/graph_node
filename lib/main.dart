@@ -62,23 +62,21 @@ Future<String> openSavePicker() async {
   return '';
 }
 
-Future<void> saveToFile(String content, String fileName) async {
-  final Directory directory = await getApplicationDocumentsDirectory();
-  final File file = File('${directory.path}/$fileName');
-
-  // 写入字符串到文件
-  await file.writeAsString(content);
-
-  print('文件保存成功：${file.path}');
-}
-
-Future<void> saveToPath(String content, String path) async {
+Future<bool> saveToPath(String content, String path) async {
   final File file = File('$path');
 
   // 写入字符串到文件
   await file.writeAsString(content);
-
-  print('文件保存成功：${file.path}');
+  try {
+    print('文件保存成功：${file.path}');
+    await file.writeAsString(content);
+    return true;
+    // File write successful
+  } catch (e) {
+    // Handle the error
+    print('Error writing to file: $e');
+    return false;
+  }
 }
 
 void main() {
@@ -183,7 +181,10 @@ class MyApp extends StatelessWidget {
 }
 
 class GraphView extends StatefulWidget {
+  // Order
+  // key
   GraphView({super.key});
+
 
   @override
   State<GraphView> createState() => _GraphViewState();
@@ -201,21 +202,64 @@ class SaveAction extends Action<SaveIntent> {
   void invoke(SaveIntent intent) {
     String json = jsonEncode(graphState);
     openSavePicker().then((file) {
-    print('1111111111111');
-    saveToPath(json, file);
+      print('1111111111111');
+      saveToPath(json, file).then((result) {
+        if (result) {
+          const snackBar = SnackBar(
+            content: Text('保存成功'),
+            duration: Duration(seconds: 2),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        } else {
+          const snackBar = SnackBar(
+            content: Text('保存失败'),
+            duration: Duration(seconds: 2),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        }
+      });
     });
     GraphState gg = GraphState.fromJson(json);
-    final snackBar = SnackBar(
-      content: Text('保存成功'),
-      duration: Duration(seconds: 2),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+}
+
+class OpenIntent extends Intent {
+  const OpenIntent();
+}
+
+class OpenAction extends Action<OpenIntent> {
+  OpenAction(this.context, this.graphState);
+  final BuildContext context;
+  final GraphState graphState;
+  @override
+  void invoke(OpenIntent intent) async  {
+    try {
+      await openFilePicker().then((path) {
+        File file = File(path);
+        String contents = file.readAsStringSync();
+        GraphState gs = GraphState.fromJson(contents);
+        Provider.of<GraphState>(context, listen: false).swap(gs);
+        (context as Element).markNeedsBuild();
+        const snackBar = SnackBar(
+          content: Text('打开成功'),
+          duration: Duration(seconds: 2),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      });
+    } catch (e) {
+      SnackBar snackBar = SnackBar(
+        content: Text('打开错误：$e'),
+        duration: const Duration(seconds: 2),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    }
   }
 }
 
 class _GraphViewState extends State<GraphView> {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext contextRoot) {
+    print("_GraphViewState build");
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.keyS, control: true): SaveIntent(),
@@ -223,14 +267,14 @@ class _GraphViewState extends State<GraphView> {
       child: ChangeNotifierProvider(
         create: (context) => GraphState(),
         child: Consumer<GraphState>(
-          builder: (context, graphState, child) => Actions(
+          builder: (context, graphState, child) { 
+            print("widget using Consumer rebuilt");
+            return Actions(
             actions: <Type, Action<Intent>>{
-              // ModifyIntent: ModifyAction(model),
+              OpenIntent: OpenAction(context, graphState),
               SaveIntent: SaveAction(context, graphState),
             },
-            child: Builder(
-              builder: (BuildContext context) {
-                return Scaffold(
+            child: Scaffold(
                   appBar: AppBar(
                     backgroundColor:
                         Theme.of(context).colorScheme.inversePrimary,
@@ -257,9 +301,6 @@ class _GraphViewState extends State<GraphView> {
                       IconButton(
                         icon: Icon(Icons.edit),
                         onPressed: () {
-                          String json = jsonEncode(graphState);
-                          GraphState gg = GraphState.fromJson(json);
-                          print(gg);
                           print('编辑按钮被点击');
                         },
                       ),
@@ -271,10 +312,10 @@ class _GraphViewState extends State<GraphView> {
                       children: <Widget>[
                         DrawerHeader(
                           decoration: BoxDecoration(
-                            color: Colors.blue,
+                            color: Color.fromARGB(255, 181, 161, 193),
                           ),
                           child: Text(
-                            '抽屉菜单',
+                            'File',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -282,15 +323,21 @@ class _GraphViewState extends State<GraphView> {
                           ),
                         ),
                         ListTile(
-                          title: Text('选项1'),
+                          title: Text('open'),
                           onTap: () {
-                            // 在这里处理选项1的点击事件
+                            setState(() {
+                              OpenAction(context, graphState)
+                                  .invoke(OpenIntent());
+                            });
+
+                            //(contextRoot as Element).markNeedsBuild();
                           },
                         ),
                         ListTile(
-                          title: Text('选项2'),
+                          title: Text('save'),
                           onTap: () {
-                            // 在这里处理选项2的点击事件
+                              SaveAction(context, graphState)
+                                  .invoke(SaveIntent());
                           },
                         ),
                       ],
@@ -341,13 +388,12 @@ class _GraphViewState extends State<GraphView> {
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+          );},
             ),
           ),
-        ),
-      ),
-    );
+        );
+
   }
 }
 
@@ -424,7 +470,9 @@ class _NodeViewState extends State<NodeView> {
     );
   }
 
-  void _createTextEditWindow(BuildContext context) {
+  void _createTextEditWindow(BuildContext context, GraphState gs) {
+    _titleController.text = gs.titles[widget.node] ?? "panic";
+    _mainTextController.text = gs.mainTexts[widget.node] ?? "panic";
     String pre_title = _titleController.text;
     String pre_main_text = _mainTextController.text;
 
@@ -478,6 +526,7 @@ class _NodeViewState extends State<NodeView> {
 
   @override
   Widget build(BuildContext context) {
+    GraphState gs = Provider.of<GraphState>(context, listen: true);
     return Positioned(
         left: widget.positionX,
         top: widget.positionY,
@@ -490,13 +539,11 @@ class _NodeViewState extends State<NodeView> {
                     _showOptions(
                         context, IntegerNodeWithJson(widget.node.hashCode));
                   },
-                  child: Text(Provider.of<GraphState>(context, listen: false)
-                          .titles[widget.node] ??
-                      'init'),
+                  child: Text(gs.titles[widget.node] ?? 'init'),
                 ),
                 tooltip: 'Increment',
                 onPressed: () {
-                  _createTextEditWindow(context);
+                  _createTextEditWindow(context, gs);
                 })));
   }
 }
