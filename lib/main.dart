@@ -185,7 +185,6 @@ class GraphView extends StatefulWidget {
   // key
   GraphView({super.key});
 
-
   @override
   State<GraphView> createState() => _GraphViewState();
 }
@@ -232,7 +231,7 @@ class OpenAction extends Action<OpenIntent> {
   final BuildContext context;
   final GraphState graphState;
   @override
-  void invoke(OpenIntent intent) async  {
+  void invoke(OpenIntent intent) async {
     try {
       await openFilePicker().then((path) {
         File file = File(path);
@@ -257,143 +256,164 @@ class OpenAction extends Action<OpenIntent> {
 }
 
 class _GraphViewState extends State<GraphView> {
+  bool _ctrlOn = false;
+  void _toggleCtrlState() {
+    setState(() {
+      _ctrlOn = true;
+    });
+  }
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    setState(() {
+      // print(event.logicalKey.keyLabel);
+      if (event.logicalKey == LogicalKeyboardKey.controlLeft || event.logicalKey == LogicalKeyboardKey.controlRight) {
+        print("ctrl key");
+      }
+    });
+    return event.logicalKey == LogicalKeyboardKey.keyQ
+        ? KeyEventResult.handled
+        : KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext contextRoot) {
     print("_GraphViewState build");
     return Shortcuts(
-      shortcuts: const <ShortcutActivator, Intent>{
-        SingleActivator(LogicalKeyboardKey.keyS, control: true): SaveIntent(),
+      shortcuts: <ShortcutActivator, Intent>{
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true):
+            SaveIntent(),
       },
       child: ChangeNotifierProvider(
         create: (context) => GraphState(),
         child: Consumer<GraphState>(
-          builder: (context, graphState, child) { 
+          builder: (context, graphState, child) {
             print("widget using Consumer rebuilt");
             return Actions(
-            actions: <Type, Action<Intent>>{
-              OpenIntent: OpenAction(context, graphState),
-              SaveIntent: SaveAction(context, graphState),
-            },
-            child: Scaffold(
-                  appBar: AppBar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.inversePrimary,
-                    leading: Builder(
-                      builder: (BuildContext context) {
-                        return IconButton(
-                          icon: const Icon(Icons.menu),
-                          onPressed: () {
-                            Scaffold.of(context).openDrawer();
-                          },
-                          tooltip: MaterialLocalizations.of(context)
-                              .openAppDrawerTooltip,
-                        );
+              actions: <Type, Action<Intent>>{
+                OpenIntent: OpenAction(context, graphState),
+                SaveIntent: SaveAction(context, graphState),
+                ActivateIntent: CallbackAction<Intent>(
+                  onInvoke: (Intent intent) => _toggleCtrlState(),
+                ),
+              },
+              child: Scaffold(
+                appBar: AppBar(
+                  backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+                  leading: Builder(
+                    builder: (BuildContext context) {
+                      return IconButton(
+                        icon: const Icon(Icons.menu),
+                        onPressed: () {
+                          Scaffold.of(context).openDrawer();
+                        },
+                        tooltip: MaterialLocalizations.of(context)
+                            .openAppDrawerTooltip,
+                      );
+                    },
+                  ),
+                  actions: [
+                    IconButton(
+                      icon: Icon(Icons.file_copy),
+                      onPressed: () {
+                        // 点击“文件”按钮时的操作
+                        print('文件按钮被点击');
                       },
                     ),
-                    actions: [
-                      IconButton(
-                        icon: Icon(Icons.file_copy),
-                        onPressed: () {
-                          // 点击“文件”按钮时的操作
-                          print('文件按钮被点击');
+                    IconButton(
+                      icon: Icon(Icons.edit),
+                      onPressed: () {
+                        print('编辑按钮被点击');
+                      },
+                    ),
+                  ],
+                ),
+                drawer: Drawer(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: <Widget>[
+                      DrawerHeader(
+                        decoration: BoxDecoration(
+                          color: Color.fromARGB(255, 181, 161, 193),
+                        ),
+                        child: Text(
+                          'File',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                          ),
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('open'),
+                        onTap: () {
+                          setState(() {
+                            OpenAction(context, graphState)
+                                .invoke(OpenIntent());
+                          });
+
+                          //(contextRoot as Element).markNeedsBuild();
                         },
                       ),
-                      IconButton(
-                        icon: Icon(Icons.edit),
-                        onPressed: () {
-                          print('编辑按钮被点击');
+                      ListTile(
+                        title: Text('save'),
+                        onTap: () {
+                          SaveAction(context, graphState).invoke(SaveIntent());
                         },
                       ),
                     ],
                   ),
-                  drawer: Drawer(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      children: <Widget>[
-                        DrawerHeader(
-                          decoration: BoxDecoration(
-                            color: Color.fromARGB(255, 181, 161, 193),
-                          ),
-                          child: Text(
-                            'File',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
+                ),
+                body: Focus(
+                  autofocus: true,
+                  onKeyEvent: _handleKeyEvent,
+                  child: SingleChildScrollView(
+                    child: Stack(
+                      children: [
+                            // Use SomeExpensiveWidget here, without rebuilding every time.
+                            if (child != null) child,
+                            Container(
+                              height: 1000,
                             ),
-                          ),
-                        ),
-                        ListTile(
-                          title: Text('open'),
-                          onTap: () {
-                            setState(() {
-                              OpenAction(context, graphState)
-                                  .invoke(OpenIntent());
-                            });
+                          ] +
+                          graphState.nodeLayout.entries
+                              .map(
+                                  (MapEntry<Node, vector_math.Vector2> entry) =>
+                                      NodeView(
+                                          node: entry.key,
+                                          positionX: entry.value[0] - 50.0,
+                                          positionY: entry.value[1] - 25.0))
+                              .toList()
+                              .cast<Widget>() +
+                          graphState.edgeList
+                              .map((edge) {
+                                LineSegment ls = calculateAvoidingRectangle(
+                                  graphState.nodeLayout[edge.left] ??
+                                      vector_math.Vector2(0, 0),
+                                  Rectangle(100.0, 50.0),
+                                  graphState.nodeLayout[edge.right] ??
+                                      vector_math.Vector2(0, 0),
+                                  Rectangle(100.0, 50.0),
+                                );
 
-                            //(contextRoot as Element).markNeedsBuild();
-                          },
-                        ),
-                        ListTile(
-                          title: Text('save'),
-                          onTap: () {
-                              SaveAction(context, graphState)
-                                  .invoke(SaveIntent());
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  body: Focus(
-                    autofocus: true,
-                    child: SingleChildScrollView(
-                      child: Stack(
-                        children: [
-                              // Use SomeExpensiveWidget here, without rebuilding every time.
-                              if (child != null) child,
-                              Container(
-                                height: 1000,
-                              ),
-                            ] +
-                            graphState.nodeLayout.entries
-                                .map((MapEntry<Node, vector_math.Vector2>
-                                        entry) =>
-                                    NodeView(
-                                        node: entry.key,
-                                        positionX: entry.value[0] - 50.0,
-                                        positionY: entry.value[1] - 25.0))
-                                .toList()
-                                .cast<Widget>() +
-                            graphState.edgeList
-                                .map((edge) {
-                                  LineSegment ls = calculateAvoidingRectangle(
-                                    graphState.nodeLayout[edge.left] ??
-                                        vector_math.Vector2(0, 0),
-                                    Rectangle(100.0, 50.0),
-                                    graphState.nodeLayout[edge.right] ??
-                                        vector_math.Vector2(0, 0),
-                                    Rectangle(100.0, 50.0),
-                                  );
-
-                                  return CustomPaint(
-                                    painter: LinePainter(
-                                        startPoint:
-                                            ui.Size(ls.start[0], ls.start[1]),
-                                        endPoint: ui.Size(ls.end[0], ls.end[1]),
-                                        directed: graphState.directions[edge] ??
-                                            false),
-                                  );
-                                })
-                                .toList()
-                                .cast<Widget>(),
-                      ),
+                                return CustomPaint(
+                                  painter: LinePainter(
+                                      startPoint:
+                                          ui.Size(ls.start[0], ls.start[1]),
+                                      endPoint: ui.Size(ls.end[0], ls.end[1]),
+                                      directed:
+                                          graphState.directions[edge] ?? false),
+                                );
+                              })
+                              .toList()
+                              .cast<Widget>(),
                     ),
                   ),
                 ),
-          );},
-            ),
-          ),
-        );
-
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 
@@ -523,14 +543,26 @@ class _NodeViewState extends State<NodeView> {
       },
     );
   }
-
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    setState(() {
+      // print(event.logicalKey.keyLabel);
+      if (event.logicalKey == LogicalKeyboardKey.controlLeft || event.logicalKey == LogicalKeyboardKey.controlRight) {
+        print("node ctrl key");
+      }
+    });
+    return event.logicalKey == LogicalKeyboardKey.keyQ
+        ? KeyEventResult.handled
+        : KeyEventResult.ignored;
+  }
   @override
   Widget build(BuildContext context) {
     GraphState gs = Provider.of<GraphState>(context, listen: true);
     return Positioned(
         left: widget.positionX,
         top: widget.positionY,
-        child: SizedBox(
+        child: Focus(
+                  autofocus: true,
+                  onKeyEvent: _handleKeyEvent,child:SizedBox(
             width: 100,
             height: 50,
             child: FloatingActionButton(
@@ -544,6 +576,6 @@ class _NodeViewState extends State<NodeView> {
                 tooltip: 'Increment',
                 onPressed: () {
                   _createTextEditWindow(context, gs);
-                })));
+                }))));
   }
 }
