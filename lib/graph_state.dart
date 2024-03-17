@@ -95,8 +95,12 @@ class GraphState extends ChangeNotifier {
   Map<Node, String> titles = Map<Node, String>();
   Map<Node, String> mainTexts = Map<Node, String>();
 
+
+  List<int> selectedNodes = [];
+  double width = 0.0;
+  double height = 0.0;
   void swap(GraphState gs) {
-        title = gs.title;
+    title = gs.title;
     mainText = gs.mainText;
     current_node_id = gs.current_node_id;
     graph_nodes = List.from(gs.graph_nodes);
@@ -109,9 +113,11 @@ class GraphState extends ChangeNotifier {
 
   GraphState() {
     nodeLayout[IntegerNodeWithJson(0)] = Vector2(100.0, 50.0);
-    titles[IntegerNodeWithJson(0)] = title;
+    titles[IntegerNodeWithJson(0)] = 0.toString();
     mainTexts[IntegerNodeWithJson(0)] = mainText;
+    
   }
+
   factory GraphState.fromJson(String jsonStr) {
     GraphState gs = GraphState();
     Map<String, dynamic> json = jsonDecode(jsonStr);
@@ -121,19 +127,23 @@ class GraphState extends ChangeNotifier {
     gs.graph_nodes = (json['graph_nodes'] as List<dynamic>)
         .map((id) => IntegerNodeWithJson(id as int))
         .toList();
-    gs.edgeList =
-        (json['edgeList'] as List<dynamic>).map((edgeJson) => EdgeWithJson.fromJson(edgeJson)).toSet();
-        
-    gs.directions =
-        (json['directions'] as Map<String, dynamic>)
-            .map((key, value) => MapEntry(EdgeWithJson.fromString(key), value as bool));
-    gs.titles = (json['titles'] as Map<String, dynamic>)
-        .map((key, value) => MapEntry(IntegerNodeWithJson(int.parse(key)), value as String));
-    gs.mainTexts = (json['mainTexts'] as Map<String, dynamic>)
-        .map((key, value) => MapEntry(IntegerNodeWithJson(int.parse(key)), value as String));
+    gs.edgeList = (json['edgeList'] as List<dynamic>)
+        .map((edgeJson) => EdgeWithJson.fromJson(edgeJson))
+        .toSet();
 
-    gs.nodeLayout = (json['nodeLayout'] as Map<String, dynamic>).map((key, value) => 
-    MapEntry(IntegerNodeWithJson(int.parse(key)), Vector2(double.parse(value.split(',')[0]), double.parse(value.split(',')[1]))));
+    gs.directions = (json['directions'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(EdgeWithJson.fromString(key), value as bool));
+    gs.titles = (json['titles'] as Map<String, dynamic>).map((key, value) =>
+        MapEntry(IntegerNodeWithJson(int.parse(key)), value as String));
+    gs.mainTexts = (json['mainTexts'] as Map<String, dynamic>).map(
+        (key, value) =>
+            MapEntry(IntegerNodeWithJson(int.parse(key)), value as String));
+
+    gs.nodeLayout = (json['nodeLayout'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(
+            IntegerNodeWithJson(int.parse(key)),
+            Vector2(double.parse(value.split(',')[0]),
+                double.parse(value.split(',')[1]))));
     return gs;
   }
 
@@ -158,30 +168,34 @@ class GraphState extends ChangeNotifier {
   //   notifyListeners(); // Notify listeners about the change
   // }
 
-  void addRelatedNode(IntegerNodeWithJson node, RelationType directed) {
+  void addRelatedNode(List<IntegerNodeWithJson> nodes, RelationType directed) {
     current_node_id = current_node_id + 1;
     graph_nodes.add(IntegerNodeWithJson(current_node_id));
 
-    titles[graph_nodes.last] = title;
+    titles[graph_nodes.last] = current_node_id.toString();
     mainTexts[graph_nodes.last] = mainText;
-
-    switch (directed) {
-      case RelationType.related:
-        edgeList.add(EdgeWithJson(node, graph_nodes.last));
-        directions[edgeList.last] = false;
-        break;
-      case RelationType.parent:
-        edgeList.add(EdgeWithJson(graph_nodes.last, node));
-        directions[edgeList.last] = true;
-        break;
-      case RelationType.child:
-        edgeList.add(EdgeWithJson(node, graph_nodes.last));
-        directions[edgeList.last] = true;
-        break;
-      default:
-        print('error');
+    for (var node in nodes) {
+      switch (directed) {
+        case RelationType.related:
+          print('add edge ${node.hashCode}--${graph_nodes.last.hashCode}');
+          edgeList.add(EdgeWithJson(node, graph_nodes.last));
+          directions[edgeList.last] = false;
+          break;
+        case RelationType.parent:
+          print('add edge ${graph_nodes.last.hashCode}--${node.hashCode}');
+          edgeList.add(EdgeWithJson(graph_nodes.last, node));
+          directions[edgeList.last] = true;
+          break;
+        case RelationType.child:
+          edgeList.add(EdgeWithJson(node, graph_nodes.last));
+          directions[edgeList.last] = true;
+          break;
+        default:
+          print('error');
+      }
     }
-
+    print(edgeList);
+    selectedNodes.clear();
     final graph = Graph.fromEdgeList(
         edgeList.map((edge) => edge as EdgeWithJson).toSet());
     final layoutAlgorithm = FruchtermanReingold(graph: graph);
