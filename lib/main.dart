@@ -18,14 +18,23 @@ import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'setting.dart';
 
+// ctrl + z
+// remove node
+// ctrl + f format
+// hash(title) as hashcode of node, auto merge the same node
+// ui overlapping
+// settings ui
+// setting add r
+// serach bar
+
 ui.Size _textSize(String text, TextStyle style) {
   final TextPainter textPainter = TextPainter(
       text: TextSpan(text: text, style: style),
       textAlign: TextAlign.center,
       maxLines: 20,
       textDirection: TextDirection.ltr)
-    ..layout(minWidth: 50, maxWidth: double.infinity);
-  return textPainter.size;
+    ..layout(minWidth: 50, maxWidth: 400);
+  return ui.Size(textPainter.size.width + 50, textPainter.size.height + 50);
 }
 
 Color darkenColor(Color color, [double factor = 0.3]) {
@@ -335,7 +344,7 @@ class OpenAction extends Action<OpenIntent> {
 
 class _GraphViewState extends State<GraphView> {
   bool _ctrlOn = false;
-  double scrollViewHeight = 2000;
+  double scrollViewHeight = 2500;
   void _toggleCtrlState() {
     setState(() {
       _ctrlOn = true;
@@ -356,6 +365,8 @@ class _GraphViewState extends State<GraphView> {
   }
 
   bool openSetting = false;
+    bool isDark = false;
+
   @override
   Widget build(BuildContext contextRoot) {
     return Shortcuts(
@@ -404,7 +415,50 @@ class _GraphViewState extends State<GraphView> {
                           });
                         },
                       ),
-                    ],
+                      Container(width: 200, child: SearchAnchor(
+              builder: (BuildContext context, SearchController controller) {
+            return SearchBar(
+              controller: controller,
+              padding: const MaterialStatePropertyAll<EdgeInsets>(
+                  EdgeInsets.symmetric(horizontal: 16.0)),
+              onTap: () {
+                controller.openView();
+              },
+              onChanged: (_) {
+                controller.openView();
+              },
+              leading: const Icon(Icons.search),
+              trailing: <Widget>[
+                Tooltip(
+                  message: 'Change brightness mode',
+                  child: IconButton(
+                    isSelected: isDark,
+                    onPressed: () {
+                      setState(() {
+                        isDark = !isDark;
+                      });
+                    },
+                    icon: const Icon(Icons.wb_sunny_outlined),
+                    selectedIcon: const Icon(Icons.brightness_2_outlined),
+                  ),
+                )
+              ],
+            );
+          }, suggestionsBuilder:
+                  (BuildContext context, SearchController controller) {
+            return List<ListTile>.generate(5, (int index) {
+              final String item = 'item $index';
+              return ListTile(
+                title: Text(item),
+                onTap: () {
+                  setState(() {
+                    controller.closeView(item);
+                  });
+                },
+              );
+            });
+          }),
+                  )],
                   ),
                   drawer: Drawer(
                     child: ListView(

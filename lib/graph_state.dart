@@ -200,8 +200,8 @@ class GraphState extends ChangeNotifier {
         edgeList.map((edge) => edge as EdgeWithJson).toSet());
     final layoutAlgorithm = FruchtermanReingold(graph: graph);
     layoutAlgorithm.updateLayoutParameters(
-      width: 1000, //应该同步等于画布大小
-      height: 1000,
+      width: 1600, //应该同步等于画布大小
+      height: 2000-50,
       nodeRadius: 5,
     );
     layoutAlgorithm.computeLayout();
@@ -209,7 +209,7 @@ class GraphState extends ChangeNotifier {
       print(
           'the node with identifier ${nodeLayout.key.hashCode} is placed at ${nodeLayout.value}');
     }
-    nodeLayout = layoutAlgorithm.nodeLayout;
+    nodeLayout = layoutAlgorithm.nodeLayout.map((key, value) => MapEntry(key, Vector2(value.x + 300, value.y + 300)));
     notifyListeners(); // Notify listeners about the change
   }
 }
