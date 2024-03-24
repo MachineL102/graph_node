@@ -1,9 +1,7 @@
-import 'dart:ffi';
-import 'package:provider/provider.dart';
+
 import 'package:flutter/material.dart';
 import 'package:graph_layout/graph_layout.dart';
 import 'package:vector_math/vector_math.dart';
-import 'vector2_ext.dart';
 import 'dart:convert';
 // class DirectedEdge extends EdgeWithJson {
 //   final bool directed;
@@ -99,6 +97,8 @@ class GraphState extends ChangeNotifier {
   List<int> selectedNodes = [];
   double width = 0.0;
   double height = 0.0;
+  double offset = 100.0;
+
   void swap(GraphState gs) {
     title = gs.title;
     mainText = gs.mainText;
@@ -200,16 +200,16 @@ class GraphState extends ChangeNotifier {
         edgeList.map((edge) => edge as EdgeWithJson).toSet());
     final layoutAlgorithm = FruchtermanReingold(graph: graph);
     layoutAlgorithm.updateLayoutParameters(
-      width: 1600, //应该同步等于画布大小
-      height: 2000-50,
-      nodeRadius: 5,
+      width: 2000, //应该同步等于画布大小
+      height: 2000,
+      nodeRadius: 200, // 节点组件的大小相关
     );
     layoutAlgorithm.computeLayout();
     for (final nodeLayout in layoutAlgorithm.nodeLayout.entries) {
       print(
           'the node with identifier ${nodeLayout.key.hashCode} is placed at ${nodeLayout.value}');
     }
-    nodeLayout = layoutAlgorithm.nodeLayout.map((key, value) => MapEntry(key, Vector2(value.x + 300, value.y + 300)));
+    nodeLayout = layoutAlgorithm.nodeLayout.map((key, value) => MapEntry(key, Vector2(value.x + offset, value.y + offset)));
     notifyListeners(); // Notify listeners about the change
   }
 }
