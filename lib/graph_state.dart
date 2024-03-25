@@ -1,8 +1,10 @@
-
 import 'package:flutter/material.dart';
 import 'package:graph_layout/graph_layout.dart';
 import 'package:vector_math/vector_math.dart';
 import 'dart:convert';
+import 'package:provider/provider.dart';
+import 'setting.dart';
+
 // class DirectedEdge extends EdgeWithJson {
 //   final bool directed;
 //   DirectedEdge(
@@ -93,7 +95,6 @@ class GraphState extends ChangeNotifier {
   Map<Node, String> titles = Map<Node, String>();
   Map<Node, String> mainTexts = Map<Node, String>();
 
-
   List<int> selectedNodes = [];
   double width = 0.0;
   double height = 0.0;
@@ -115,7 +116,6 @@ class GraphState extends ChangeNotifier {
     nodeLayout[IntegerNodeWithJson(0)] = Vector2(100.0, 50.0);
     titles[IntegerNodeWithJson(0)] = 0.toString();
     mainTexts[IntegerNodeWithJson(0)] = mainText;
-    
   }
 
   factory GraphState.fromJson(String jsonStr) {
@@ -168,7 +168,8 @@ class GraphState extends ChangeNotifier {
   //   notifyListeners(); // Notify listeners about the change
   // }
 
-  void addRelatedNode(List<IntegerNodeWithJson> nodes, RelationType directed) {
+  void addRelatedNode(List<IntegerNodeWithJson> nodes, RelationType directed,
+      SettingState settingState) {
     current_node_id = current_node_id + 1;
     graph_nodes.add(IntegerNodeWithJson(current_node_id));
 
@@ -199,17 +200,39 @@ class GraphState extends ChangeNotifier {
     final graph = Graph.fromEdgeList(
         edgeList.map((edge) => edge as EdgeWithJson).toSet());
     final layoutAlgorithm = FruchtermanReingold(graph: graph);
+    double nodeRadius = 400.0;
     layoutAlgorithm.updateLayoutParameters(
-      width: 3000, //应该同步等于画布大小
-      height: 3000,
-      nodeRadius: 400, // 节点组件的大小相关
+      width: settingState.graphSize, //应该同步等于画布大小
+      height: settingState.graphSize,
+      nodeRadius: nodeRadius, // 节点组件的大小相关
     );
     layoutAlgorithm.computeLayout();
     for (final nodeLayout in layoutAlgorithm.nodeLayout.entries) {
       print(
           'the node with identifier ${nodeLayout.key.hashCode} is placed at ${nodeLayout.value}');
     }
-    nodeLayout = layoutAlgorithm.nodeLayout.map((key, value) => MapEntry(key, Vector2(value.x + offset, value.y + offset)));
+    int inner_count = 0;
+    double scale = 0.8; // param 一般应该大于1，倾向于边缘只要有一些节点就增大画布
+    double edge = 50.0; // param
+    double real_low_bound = nodeRadius + edge;
+    double real_high_bound = settingState.graphSize - nodeRadius - edge;
+    double should_proportion = ((real_high_bound - real_low_bound) *
+        (real_high_bound - real_low_bound)) /
+        ((real_high_bound - real_low_bound + 2 * edge) *
+        (real_high_bound - real_low_bound + 2 * edge));
+
+    nodeLayout = layoutAlgorithm.nodeLayout.map((key, value) {
+      if (real_low_bound < value[0] && value[0] < real_high_bound) {
+        inner_count += 1;
+      }
+
+      return MapEntry(key, Vector2(value.x + offset, value.y + offset));
+    });
+    // 如果应该在中心区域的点坐标的数量过少，说明有较多比例的点被分布在了画布边缘，此时画布边缘文本过于密集，需要增大画布大小。
+    if (inner_count / nodeLayout.length < should_proportion * scale) {
+      settingState.graphSize += 1000.0;
+    }
+    print('prot1:${inner_count / nodeLayout.length} < prot2:${should_proportion*scale}, inner_count:${inner_count}, ${settingState.graphSize}');
     notifyListeners(); // Notify listeners about the change
   }
 }

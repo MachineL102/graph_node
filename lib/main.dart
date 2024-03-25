@@ -293,6 +293,9 @@ class _MultiGraphState extends State<MultiGraph> {
                                   setState(() {
                                     _Graphs.removeAt(index);
                                     if (index == _tabIndex) _tabIndex -= 1;
+                                    if (_tabIndex==-1) {
+                                      _tabIndex = 0;
+                                    }
                                     print(
                                         "after remove _tabIndex:${_tabIndex}");
                                   });
@@ -346,13 +349,13 @@ class _GraphState extends State<Graph> {
       minScale: 0.05,
       maxScale: 5,
       child: Container(
-        width: 3000, // 设置一个固定的宽度
-        height: 3000, // 设置一个固定的高度
+        width: settingState.graphSize, // 设置一个固定的宽度
+        height: settingState.graphSize, // 设置一个固定的高度
         child: Stack(
           children: <Widget>[
                 Container(
-                    width: 3000, // 设置一个固定的宽度
-                    height: 3000, // 设置一个固定的高度
+                    width: settingState.graphSize, // 设置一个固定的宽度
+                    height: settingState.graphSize, // 设置一个固定的高度
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,

@@ -94,7 +94,7 @@ class _NodeViewState extends State<NodeView> {
   HardwareKeyboard hardwareKeyboard = HardwareKeyboard();
 
   void showOptions(BuildContext context, List<IntegerNodeWithJson> nodes,
-      TapUpDetails? details) {
+      TapUpDetails? details, SettingState settingState) {
     final RenderBox button = context.findRenderObject() as RenderBox;
     final Offset offset = button.localToGlobal(Offset.zero);
 
@@ -111,7 +111,7 @@ class _NodeViewState extends State<NodeView> {
           child: Text('create related node'),
           onTap: () {
             setState(() {
-              widget.gs.addRelatedNode(nodes, RelationType.related);
+              widget.gs.addRelatedNode(nodes, RelationType.related, settingState);
             });
                 widget.onUpdate();
           },
@@ -120,7 +120,7 @@ class _NodeViewState extends State<NodeView> {
           child: Text('create parent node'),
           onTap: () {
                         setState(() {
-            widget.gs.addRelatedNode(nodes, RelationType.parent);
+            widget.gs.addRelatedNode(nodes, RelationType.parent, settingState);
             });
                 widget.onUpdate();
           },
@@ -128,7 +128,7 @@ class _NodeViewState extends State<NodeView> {
         PopupMenuItem(
           child: Text('create child node'),
           onTap: () {
-            widget.gs.addRelatedNode(nodes, RelationType.child);
+            widget.gs.addRelatedNode(nodes, RelationType.child, settingState);
                 widget.onUpdate();
           },
         ),
@@ -163,10 +163,10 @@ class _NodeViewState extends State<NodeView> {
                     widget.gs.selectedNodes
                         .map((e) => IntegerNodeWithJson(e))
                         .toList(),
-                    null);
+                    null, settingState);
               } else {
                 showOptions(
-                    context, [IntegerNodeWithJson(widget.node.hashCode)], null);
+                    context, [IntegerNodeWithJson(widget.node.hashCode)], null, settingState);
               }
             },
             child: SizedBox(
