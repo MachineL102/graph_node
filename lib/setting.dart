@@ -7,6 +7,7 @@ import 'utils.dart';
 
 class SettingState extends ChangeNotifier {
   double _fontSize = 20.0;
+  double _graphSize = 3000.0;
   String _fontStyle = 'ABeeZee';
   Color _mainColor = Color(0xffffb56b);
   
@@ -19,6 +20,15 @@ class SettingState extends ChangeNotifier {
   // Setter方法
   set mainColor(Color value) {
     _mainColor = value;
+    notifyListeners();
+  }
+
+  // Getter方法
+  double get graphSize => _graphSize;
+
+  // Setter方法
+  set graphSize(double value) {
+    _graphSize = value;
     notifyListeners();
   }
 

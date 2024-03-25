@@ -61,45 +61,6 @@ Future<String> openFilePicker() async {
   return '';
 }
 
-void showOptions(BuildContext context, List<IntegerNodeWithJson> nodes,
-    TapUpDetails? details) {
-  final RenderBox button = context.findRenderObject() as RenderBox;
-  final Offset offset = button.localToGlobal(Offset.zero);
-
-  showMenu(
-    context: context,
-    position: RelativeRect.fromLTRB(
-      offset.dx + button.size.width,
-      offset.dy + button.size.height,
-      offset.dx + button.size.width,
-      0,
-    ),
-    items: [
-      PopupMenuItem(
-        child: Text('create related node'),
-        onTap: () {
-          Provider.of<GraphState>(context, listen: false)
-              .addRelatedNode(nodes, RelationType.related);
-        },
-      ),
-      PopupMenuItem(
-        child: Text('create parent node'),
-        onTap: () {
-          Provider.of<GraphState>(context, listen: false)
-              .addRelatedNode(nodes, RelationType.parent);
-        },
-      ),
-      PopupMenuItem(
-        child: Text('create child node'),
-        onTap: () {
-          Provider.of<GraphState>(context, listen: false)
-              .addRelatedNode(nodes, RelationType.child);
-        },
-      ),
-    ],
-  );
-}
-
 Future<String> openSavePicker() async {
   try {
     // 使用FilePicker选择文件
