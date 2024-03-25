@@ -14,6 +14,20 @@ import 'package:google_fonts/google_fonts.dart';
 
 // 快捷键不管用
 // 主题
+// ctrl + z
+// ctrl + zoom in/out
+// remove node
+// ctrl + f format
+// hash(title) as hashcode of node, auto merge the same node
+// ui overlapping
+// settings ui
+// setting add r
+// serach bar
+// moveable node
+// layout size = k * node count
+// multi-subgraph
+// persistent state
+
 void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
@@ -329,16 +343,16 @@ class _GraphState extends State<Graph> {
       clipBehavior: Clip.none,
       boundaryMargin: const EdgeInsets.all(0),
       constrained: false,
-      minScale: 0.1,
+      minScale: 0.05,
       maxScale: 5,
       child: Container(
-        width: 2000, // 设置一个固定的宽度
-        height: 2000, // 设置一个固定的高度
+        width: 3000, // 设置一个固定的宽度
+        height: 3000, // 设置一个固定的高度
         child: Stack(
           children: <Widget>[
                 Container(
-                    width: 2000, // 设置一个固定的宽度
-                    height: 2000, // 设置一个固定的高度
+                    width: 3000, // 设置一个固定的宽度
+                    height: 3000, // 设置一个固定的高度
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,

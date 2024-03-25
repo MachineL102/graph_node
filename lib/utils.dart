@@ -8,8 +8,8 @@ ui.Size textSize(String text, TextStyle style) {
       textAlign: TextAlign.center,
       maxLines: 20,
       textDirection: TextDirection.ltr)
-    ..layout(minWidth: 50, maxWidth: 500);
-  return textPainter.size;
+    ..layout(minWidth: 50, maxWidth: 300);
+  return ui.Size(textPainter.size.width + 20, textPainter.size.height + 20);
 }
 
 Color darkenColor(Color color, [double factor = 0.3]) {
@@ -44,7 +44,7 @@ Color getLighterColor(Color color, double factor) {
   int red = color.red;
   int green = color.green;
   int blue = color.blue;
-  
+
   // 调整颜色的不透明度，使其看起来更浅
   return Color.fromRGBO(
     (red + ((255 - red) * factor)).toInt(),

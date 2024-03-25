@@ -170,16 +170,20 @@ class _NodeViewState extends State<NodeView> {
               }
             },
             child: SizedBox(
-                width: txtSize.width,
-                height: txtSize.height,
+                width: txtSize.width + 30,
+                height: txtSize.height + 20,
                 child: FloatingActionButton(
                     backgroundColor: widget.color,
                     hoverElevation: 8.0,
                     heroTag: "btn${widget.node.hashCode}",
-                    child: Text(
+                    child:Container(
+                width: txtSize.width,
+                height: txtSize.height,
+                child: Text(
+
                       text,
                       style: textStyle,
-                    ),
+                    ),),
                     tooltip: 'Increment',
                     onPressed: () {
                       if (HardwareKeyboard.instance.isControlPressed) {

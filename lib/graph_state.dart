@@ -200,9 +200,9 @@ class GraphState extends ChangeNotifier {
         edgeList.map((edge) => edge as EdgeWithJson).toSet());
     final layoutAlgorithm = FruchtermanReingold(graph: graph);
     layoutAlgorithm.updateLayoutParameters(
-      width: 2000, //应该同步等于画布大小
-      height: 2000,
-      nodeRadius: 200, // 节点组件的大小相关
+      width: 3000, //应该同步等于画布大小
+      height: 3000,
+      nodeRadius: 400, // 节点组件的大小相关
     );
     layoutAlgorithm.computeLayout();
     for (final nodeLayout in layoutAlgorithm.nodeLayout.entries) {
