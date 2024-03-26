@@ -254,7 +254,9 @@ class _MultiGraphState extends State<MultiGraph> {
                       child: Container(
                           color: index == _tabIndex
                               ? Theme.of(context).colorScheme.inversePrimary
-                              : getLighterColor(Theme.of(context).colorScheme.inversePrimary, 0.5),
+                              : getLighterColor(
+                                  Theme.of(context).colorScheme.inversePrimary,
+                                  0.5),
                           child: Row(
                             children: [
                               TextButton(
@@ -267,8 +269,14 @@ class _MultiGraphState extends State<MultiGraph> {
                                   ),
                                   elevation: 0,
                                   foregroundColor: index == _tabIndex
-                                      ? Theme.of(context).colorScheme.inversePrimary
-                                      : getLighterColor(Theme.of(context).colorScheme.inversePrimary, 0.5),
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .inversePrimary
+                                      : getLighterColor(
+                                          Theme.of(context)
+                                              .colorScheme
+                                              .inversePrimary,
+                                          0.5),
                                 ),
                                 onPressed: () {
                                   // 按钮被点击时的操作
@@ -287,14 +295,20 @@ class _MultiGraphState extends State<MultiGraph> {
                                 style: TextButton.styleFrom(
                                   foregroundColor: Colors.black,
                                   backgroundColor: index == _tabIndex
-                                      ? Theme.of(context).colorScheme.inversePrimary
-                                      : getLighterColor(Theme.of(context).colorScheme.inversePrimary, 0.5),
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .inversePrimary
+                                      : getLighterColor(
+                                          Theme.of(context)
+                                              .colorScheme
+                                              .inversePrimary,
+                                          0.5),
                                 ),
                                 onPressed: () {
                                   setState(() {
                                     _Graphs.removeAt(index);
                                     if (index == _tabIndex) _tabIndex -= 1;
-                                    if (_tabIndex==-1) {
+                                    if (_tabIndex == -1) {
                                       _tabIndex = 0;
                                     }
                                     print(
@@ -332,80 +346,142 @@ class Graph extends StatefulWidget {
   State<Graph> createState() => _GraphState();
 }
 
-class _GraphState extends State<Graph> {
+class _GraphState extends State<Graph> with TickerProviderStateMixin {
   void _updateCounter() {
     setState(() {});
+  }
+
+  final TransformationController _transformationController =
+      TransformationController();
+  Animation<Matrix4>? _animationReset;
+  late final AnimationController _controllerReset;
+
+  void _onAnimateReset() {
+    _transformationController.value = _animationReset!.value;
+    if (!_controllerReset.isAnimating) {
+      _animationReset!.removeListener(_onAnimateReset);
+      _animationReset = null;
+      _controllerReset.reset();
+    }
+  }
+
+  void _animateResetInitialize(vector_math.Vector2 lastNodePosition) {
+    _controllerReset.reset();
+    _animationReset = Matrix4Tween(
+      begin: _transformationController.value,
+      end: Matrix4.identity()..translate(500,500,0),
+    ).animate(_controllerReset);
+    _animationReset!.addListener(_onAnimateReset);
+    _controllerReset.forward();
+  }
+
+  void _animateResetStop() {
+    _controllerReset.stop();
+    _animationReset?.removeListener(_onAnimateReset);
+    _animationReset = null;
+    _controllerReset.reset();
+  }
+
+  void _onInteractionStart(ScaleStartDetails details) {
+    // If the user tries to cause a transformation while the reset animation is
+    // running, cancel the reset animation.
+    if (_controllerReset.status == AnimationStatus.forward) {
+      _animateResetStop();
+    }
+  }
+
+  @override
+  void initState() {
+    _controllerReset = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _controllerReset.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     SettingState settingState =
         Provider.of<SettingState>(context, listen: true);
-
+    vector_math.Vector2 lastNodePosition =
+        widget.gs.nodeLayout[widget.gs.graph_nodes.last]!;
+    _animateResetInitialize(lastNodePosition);
     return Center(
         child: InteractiveViewer(
+      transformationController: _transformationController,
       clipBehavior: Clip.none,
       boundaryMargin: const EdgeInsets.all(0),
       constrained: false,
       minScale: 0.05,
       maxScale: 5,
+      onInteractionStart: _onInteractionStart,
       child: Container(
         width: settingState.graphSize, // 设置一个固定的宽度
         height: settingState.graphSize, // 设置一个固定的高度
         child: Stack(
-          children: <Widget>[
-                Container(
-                    width: settingState.graphSize, // 设置一个固定的宽度
-                    height: settingState.graphSize, // 设置一个固定的高度
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment(0.8, 1),
-                        colors: <Color>[
-                          Theme.of(context).colorScheme.inversePrimary,
-                          Color.fromARGB(255, 227, 120, 136),
-                          Color.fromARGB(255, 207, 89, 35),
-                        ], // Gradient from https://learnui.design/tools/gradient-generator.html
-                        tileMode: TileMode.mirror,
-                      ),
-                    ))
-              ] +
-              widget.gs.edgeList
-                  .map((edge) {
-                    final String text = widget.gs.titles[edge.left] ?? 'init';
-                    final TextStyle textStyle = GoogleFonts.getFont(
-                      settingState.fontStyle,
-                      fontSize: settingState.fontSize,
-                    );
-                    final ui.Size txtSize = textSize(text, textStyle);
-                    final String text2 = widget.gs.titles[edge.left] ?? 'init';
-                    final TextStyle textStyle2 = GoogleFonts.getFont(
-                      settingState.fontStyle,
-                      fontSize: settingState.fontSize,
-                    );
-                    final ui.Size txtSize2 = textSize(text, textStyle);
+            children: <Widget>[
+                  Container(
+                      width: settingState.graphSize, // 设置一个固定的宽度
+                      height: settingState.graphSize, // 设置一个固定的高度
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment(0.8, 1),
+                          colors: <Color>[
+                            Theme.of(context).colorScheme.inversePrimary,
+                            Color.fromARGB(255, 227, 120, 136),
+                            Color.fromARGB(255, 207, 89, 35),
+                          ], // Gradient from https://learnui.design/tools/gradient-generator.html
+                          tileMode: TileMode.mirror,
+                        ),
+                      ))
+                ] +
+                widget.gs.edgeList
+                    .map((edge) {
+                      final String text = widget.gs.titles[edge.left] ?? 'init';
+                      final TextStyle textStyle = GoogleFonts.getFont(
+                        settingState.fontStyle,
+                        fontSize: settingState.fontSize,
+                      );
+                      final ui.Size txtSize = textSize(text, textStyle);
+                      final String text2 =
+                          widget.gs.titles[edge.left] ?? 'init';
+                      final TextStyle textStyle2 = GoogleFonts.getFont(
+                        settingState.fontStyle,
+                        fontSize: settingState.fontSize,
+                      );
+                      final ui.Size txtSize2 = textSize(text, textStyle);
 
-                    return CustomPaint(
-                      painter: LinePainter(
-                          startPoint: ui.Size(widget.gs.nodeLayout[edge.left]![0], widget.gs.nodeLayout[edge.left]![1]),
-                          endPoint: ui.Size(widget.gs.nodeLayout[edge.right]![0], widget.gs.nodeLayout[edge.right]![1]),
-                          directed: widget.gs.directions[edge] ?? false),
-                    );
-                  })
-                  .toList()
-                  .cast<Widget>() +
-              widget.gs.nodeLayout.entries
-                  .map((MapEntry<Node, vector_math.Vector2> entry) {
-                    return NodeView(
-                      gs: widget.gs,
-                      node: entry.key,
-                      color: Theme.of(context).colorScheme.inversePrimary,
-                      onUpdate: _updateCounter,
-                    );
-                  })
-                  .toList()
-                  .cast<Widget>()
-        ),
+                      return CustomPaint(
+                        painter: LinePainter(
+                            startPoint: ui.Size(
+                                widget.gs.nodeLayout[edge.left]![0],
+                                widget.gs.nodeLayout[edge.left]![1]),
+                            endPoint: ui.Size(
+                                widget.gs.nodeLayout[edge.right]![0],
+                                widget.gs.nodeLayout[edge.right]![1]),
+                            directed: widget.gs.directions[edge] ?? false),
+                      );
+                    })
+                    .toList()
+                    .cast<Widget>() +
+                widget.gs.nodeLayout.entries
+                    .map((MapEntry<Node, vector_math.Vector2> entry) {
+                      return NodeView(
+                        gs: widget.gs,
+                        node: entry.key,
+                        color: Theme.of(context).colorScheme.inversePrimary,
+                        onUpdate: _updateCounter,
+                      );
+                    })
+                    .toList()
+                    .cast<Widget>()),
       ),
     ));
   }
