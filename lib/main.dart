@@ -12,6 +12,7 @@ import 'dart:ui' as ui;
 import 'utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// 应该在stack中把line放在前面，避免遮挡nodeview
 // 快捷键不管用
 // 主题
 // ctrl + z
