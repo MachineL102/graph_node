@@ -7,6 +7,39 @@ import 'dart:io';
 import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:typed_data';
+import 'package:flutter/rendering.dart';
+
+Future<Uint8List?> captureImage(
+  GlobalKey key,
+) async {
+  try {
+    RenderRepaintBoundary boundary =
+        key.currentContext?.findRenderObject() as RenderRepaintBoundary;
+    ui.Image image =
+        await boundary.toImage(pixelRatio: 3.0); // 为了提高图像质量，可以设置更高的像素密度
+    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final directory = await getApplicationDocumentsDirectory();
+    // 创建一个新的文件，文件名为当前时间戳
+    final file = File(
+        '${directory.path}/image_${DateTime.now().millisecondsSinceEpoch}.png');
+    return byteData?.buffer.asUint8List();
+  } catch (e) {
+    print('捕获图像失败：$e');
+    return null;
+  }
+}
+
+void saveToDocumentsDirectory(GraphState gs, String fileName) async {
+  final Directory appDocumentsDir = await getApplicationDocumentsDirectory();
+  final String filePath = '${appDocumentsDir.path}/$fileName.json';
+  print('save to $filePath');
+  String json = jsonEncode(gs);
+  File file = File(filePath);
+  await file.writeAsString(json);
+  return;
+}
 
 ui.Size _textSize(String text, TextStyle style) {
   final TextPainter textPainter = TextPainter(

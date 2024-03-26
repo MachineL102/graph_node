@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:graph_note/home_widget.dart';
 import 'graph_state.dart';
 import 'package:graph_layout/graph_layout.dart';
 import 'node_view.dart';
@@ -12,9 +13,7 @@ import 'dart:ui' as ui;
 import 'utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// 应该在stack中把line放在前面，避免遮挡nodeview
 // 快捷键不管用
-// 主题
 // ctrl + z
 // ctrl + zoom in/out
 // remove node
@@ -86,7 +85,7 @@ class _MultiGraphState extends State<MultiGraph> {
   @override
   void initState() {
     _selectedIndex = 0;
-    _tabIndex = -1;
+    _tabIndex = 0;
     _Graphs = [];
     fontSizes = generateList(10.0, 50.0, 1.0);
     super.initState();
@@ -98,7 +97,45 @@ class _MultiGraphState extends State<MultiGraph> {
     });
   }
 
-  int _tabIndex = -1;
+  Future<String?> _showNameDialog(BuildContext context) async {
+    String? name = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        TextEditingController controller = TextEditingController();
+
+        return AlertDialog(
+          title: Text('Enter Your Note Name'),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(hintText: 'Enter your Note name'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                String? enteredName = controller.text;
+                Navigator.of(context).pop(enteredName);
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (name != null) {
+      return name;
+    } else {
+      return null;
+    }
+  }
+
+  int _tabIndex = 0;
   List<Graph> _Graphs = [];
   late List<double> fontSizes;
   @override
@@ -179,19 +216,33 @@ class _MultiGraphState extends State<MultiGraph> {
                     child: Text('Drawer Header'),
                   ),
                   ListTile(
+                    title: const Text('Save to data dir'),
+                    onTap: () {
+                      saveToDocumentsDirectory(_Graphs[_tabIndex - 1].gs,
+                          _Graphs[_tabIndex - 1].graphName);
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
                     title: const Text('New'),
                     selected: _selectedIndex == 0,
-                    onTap: () {
-                      // Update the state of the app
-                      setState(() {
-                        _tabIndex += 1;
-                        _Graphs.insert(
-                            _tabIndex,
-                            Graph(
-                              gs: GraphState(),
-                              graphName: "new file",
-                            ));
-                      });
+                    onTap: () async {
+                      String? fileName = await _showNameDialog(context);
+                      if (fileName != null) {
+                        setState(() {
+                          _tabIndex += 1;
+                          print(_tabIndex);
+                          GraphState gs = GraphState();
+                          saveToDocumentsDirectory(gs, fileName);
+                          _Graphs.insert(
+                              _tabIndex - 1,
+                              Graph(
+                                key: UniqueKey(),
+                                gs: gs,
+                                graphName: fileName,
+                              ));
+                        });
+                      }
 
                       _onItemTapped(0);
                       // Then close the drawer
@@ -208,8 +259,12 @@ class _MultiGraphState extends State<MultiGraph> {
                         if (value.$1 != null && value.$2 != null) {
                           setState(() {
                             _tabIndex += 1;
-                            _Graphs.insert(_tabIndex,
-                                Graph(gs: value.$1!, graphName: value.$2!));
+                            _Graphs.insert(
+                                _tabIndex - 1,
+                                Graph(
+                                    key: UniqueKey(),
+                                    gs: value.$1!,
+                                    graphName: value.$2!));
                           });
                         } else {
                           print('open error');
@@ -225,8 +280,9 @@ class _MultiGraphState extends State<MultiGraph> {
                     title: const Text('Save'),
                     selected: _selectedIndex == 2,
                     onTap: () {
-                      SaveAction(context, _Graphs[_tabIndex].gs)
+                      SaveAction(context, _Graphs[_tabIndex - 1].gs)
                           .invoke(SaveIntent());
+                          captureImage( _Graphs[_tabIndex - 1].key);
                       _onItemTapped(2);
                       // Then close the drawer
                       Navigator.pop(context);
@@ -243,32 +299,27 @@ class _MultiGraphState extends State<MultiGraph> {
                   color: Theme.of(context).colorScheme.inversePrimary,
 
                   child: Row(
-                      children: List<Widget>.generate(
-                    _Graphs.length,
-                    (index) => Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                            color: Color.fromARGB(31, 226, 213, 213),
-                            width: 1.0),
-                      ),
-                      child: Container(
-                          color: index == _tabIndex
-                              ? Theme.of(context).colorScheme.inversePrimary
-                              : getLighterColor(
-                                  Theme.of(context).colorScheme.inversePrimary,
-                                  0.5),
-                          child: Row(
-                            children: [
-                              TextButton(
-                                style: TextButton.styleFrom(
-                                  textStyle:
-                                      GoogleFonts.merriweather(fontSize: 15.0),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.zero, // 将边框半径设置为零以获得方角矩形
-                                  ),
-                                  elevation: 0,
-                                  foregroundColor: index == _tabIndex
+                      children: <Widget>[
+                            IconButton(
+                              icon: Icon(Icons.home),
+                              onPressed: () {
+                                // 按钮被点击时的操作
+                                setState(() {
+                                  _tabIndex = 0;
+                                });
+                              },
+                            ),
+                          ] +
+                          List<Widget>.generate(
+                            _Graphs.length,
+                            (index) => Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: Color.fromARGB(31, 226, 213, 213),
+                                    width: 1.0),
+                              ),
+                              child: Container(
+                                  color: index == _tabIndex - 1
                                       ? Theme.of(context)
                                           .colorScheme
                                           .inversePrimary
@@ -277,59 +328,86 @@ class _MultiGraphState extends State<MultiGraph> {
                                               .colorScheme
                                               .inversePrimary,
                                           0.5),
-                                ),
-                                onPressed: () {
-                                  // 按钮被点击时的操作
-                                  setState(() {
-                                    _tabIndex = index;
-                                  });
-                                },
-                                child: Text(
-                                  _Graphs[index].graphName,
-                                  style: GoogleFonts.merriweather(
-                                      fontSize: 15.0, color: Colors.black),
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.close),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.black,
-                                  backgroundColor: index == _tabIndex
-                                      ? Theme.of(context)
-                                          .colorScheme
-                                          .inversePrimary
-                                      : getLighterColor(
-                                          Theme.of(context)
-                                              .colorScheme
-                                              .inversePrimary,
-                                          0.5),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _Graphs.removeAt(index);
-                                    if (index == _tabIndex) _tabIndex -= 1;
-                                    if (_tabIndex == -1) {
-                                      _tabIndex = 0;
-                                    }
-                                    print(
-                                        "after remove _tabIndex:${_tabIndex}");
-                                  });
-                                },
-                              ),
-                            ],
+                                  child: Row(
+                                    children: [
+                                      TextButton(
+                                        style: TextButton.styleFrom(
+                                          textStyle: GoogleFonts.merriweather(
+                                              fontSize: 15.0),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius
+                                                .zero, // 将边框半径设置为零以获得方角矩形
+                                          ),
+                                          elevation: 0,
+                                          foregroundColor:
+                                              index == _tabIndex - 1
+                                                  ? Theme.of(context)
+                                                      .colorScheme
+                                                      .inversePrimary
+                                                  : getLighterColor(
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .inversePrimary,
+                                                      0.5),
+                                        ),
+                                        onPressed: () {
+                                          // 按钮被点击时的操作
+                                          setState(() {
+                                            _tabIndex = index + 1;
+                                          });
+                                        },
+                                        child: Text(
+                                          _Graphs[index].graphName,
+                                          style: GoogleFonts.merriweather(
+                                              fontSize: 15.0,
+                                              color: Colors.black),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.close),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: Colors.black,
+                                          backgroundColor:
+                                              index == _tabIndex - 1
+                                                  ? Theme.of(context)
+                                                      .colorScheme
+                                                      .inversePrimary
+                                                  : getLighterColor(
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .inversePrimary,
+                                                      0.5),
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _Graphs.removeAt(index);
+                                            if (index == _tabIndex - 1)
+                                              _tabIndex -= 1;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  )),
+                            ),
                           )),
-                    ),
-                  )),
                   // graph view
                 ),
                 Actions(
                     actions: <Type, Action<Intent>>{
-                      SaveIntent: SaveAction(context,
-                          _tabIndex >= 0 ? _Graphs[_tabIndex].gs : null),
+                      SaveIntent: SaveAction(
+                          context,
+                          (_tabIndex - 1 >= 0 &&
+                                  _tabIndex - 1 < _Graphs.length &&
+                                  _Graphs.isNotEmpty)
+                              ? _Graphs[_tabIndex - 1].gs
+                              : null),
                     },
                     child: Expanded(
-                        child:
-                            IndexedStack(index: _tabIndex, children: _Graphs)))
+                        child: IndexedStack(
+                            index: _tabIndex,
+                            children: <Widget>[home()] +
+                                _Graphs.map((child) => child as Widget)
+                                    .toList())))
               ],
             ),
           );
@@ -338,8 +416,9 @@ class _MultiGraphState extends State<MultiGraph> {
 }
 
 class Graph extends StatefulWidget {
-  Graph({Key? key, required this.gs, required this.graphName})
+  Graph({required this.key, required this.gs, required this.graphName})
       : super(key: key);
+  final Key key;
   final GraphState gs;
   final String graphName;
   @override
@@ -367,9 +446,18 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
 
   void _animateResetInitialize(vector_math.Vector2 lastNodePosition) {
     _controllerReset.reset();
+    double x = -lastNodePosition[0];
+    double y = -lastNodePosition[1];
+    Size screenSize = MediaQuery.of(context).size;
+    double screenWidth = screenSize.width;
+    double screenHeight = screenSize.height;
+
+    print(
+        'from ${_transformationController.value} to ${Matrix4.identity()..translate(-1000.0, -1000.0, 0.0)}');
     _animationReset = Matrix4Tween(
       begin: _transformationController.value,
-      end: Matrix4.identity()..translate(500,500,0),
+      end: Matrix4.identity()
+        ..translate(x + screenWidth / 2, y + screenHeight / 2, 0.0),
     ).animate(_controllerReset);
     _animationReset!.addListener(_onAnimateReset);
     _controllerReset.forward();
@@ -414,6 +502,7 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
     _animateResetInitialize(lastNodePosition);
     return Center(
         child: InteractiveViewer(
+      key: widget.key,
       transformationController: _transformationController,
       clipBehavior: Clip.none,
       boundaryMargin: const EdgeInsets.all(0),
