@@ -370,17 +370,6 @@ class _GraphState extends State<Graph> {
                       ),
                     ))
               ] +
-              widget.gs.nodeLayout.entries
-                  .map((MapEntry<Node, vector_math.Vector2> entry) {
-                    return NodeView(
-                      gs: widget.gs,
-                      node: entry.key,
-                      color: Theme.of(context).colorScheme.inversePrimary,
-                      onUpdate: _updateCounter,
-                    );
-                  })
-                  .toList()
-                  .cast<Widget>() +
               widget.gs.edgeList
                   .map((edge) {
                     final String text = widget.gs.titles[edge.left] ?? 'init';
@@ -395,24 +384,27 @@ class _GraphState extends State<Graph> {
                       fontSize: settingState.fontSize,
                     );
                     final ui.Size txtSize2 = textSize(text, textStyle);
-                    LineSegment ls = calculateAvoidingRectangle(
-                      widget.gs.nodeLayout[edge.left] ??
-                          vector_math.Vector2(0, 0),
-                      Rectangle(txtSize.width, txtSize.height),
-                      widget.gs.nodeLayout[edge.right] ??
-                          vector_math.Vector2(0, 0),
-                      Rectangle(txtSize2.width, txtSize2.height),
-                    );
 
                     return CustomPaint(
                       painter: LinePainter(
-                          startPoint: ui.Size(ls.start[0], ls.start[1]),
-                          endPoint: ui.Size(ls.end[0], ls.end[1]),
+                          startPoint: ui.Size(widget.gs.nodeLayout[edge.left]![0], widget.gs.nodeLayout[edge.left]![1]),
+                          endPoint: ui.Size(widget.gs.nodeLayout[edge.right]![0], widget.gs.nodeLayout[edge.right]![1]),
                           directed: widget.gs.directions[edge] ?? false),
                     );
                   })
                   .toList()
-                  .cast<Widget>(),
+                  .cast<Widget>() +
+              widget.gs.nodeLayout.entries
+                  .map((MapEntry<Node, vector_math.Vector2> entry) {
+                    return NodeView(
+                      gs: widget.gs,
+                      node: entry.key,
+                      color: Theme.of(context).colorScheme.inversePrimary,
+                      onUpdate: _updateCounter,
+                    );
+                  })
+                  .toList()
+                  .cast<Widget>()
         ),
       ),
     ));
