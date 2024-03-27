@@ -13,14 +13,10 @@ import 'dart:ui' as ui;
 import 'utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// 快捷键不管用
-// ctrl + z
-// ctrl + zoom in/out
+// ctrl + z ctrl + f format；
+// remove white margin, which can use nodeRadius = Screensize/2
 // remove node
-// ctrl + f format
 // hash(title) as hashcode of node, auto merge the same node
-// ui overlapping
-// settings ui
 // setting add r
 // serach bar
 // moveable node
@@ -220,6 +216,8 @@ class _MultiGraphState extends State<MultiGraph> {
                     onTap: () {
                       saveToDocumentsDirectory(_Graphs[_tabIndex - 1].gs,
                           _Graphs[_tabIndex - 1].graphName);
+                      captureImage(_Graphs[_tabIndex - 1].mykey,
+                          _Graphs[_tabIndex - 1].graphName);
                       Navigator.pop(context);
                     },
                   ),
@@ -237,7 +235,7 @@ class _MultiGraphState extends State<MultiGraph> {
                           _Graphs.insert(
                               _tabIndex - 1,
                               Graph(
-                                key: UniqueKey(),
+                                mykey: GlobalKey(),
                                 gs: gs,
                                 graphName: fileName,
                               ));
@@ -262,7 +260,7 @@ class _MultiGraphState extends State<MultiGraph> {
                             _Graphs.insert(
                                 _tabIndex - 1,
                                 Graph(
-                                    key: UniqueKey(),
+                                    mykey: GlobalKey(),
                                     gs: value.$1!,
                                     graphName: value.$2!));
                           });
@@ -279,10 +277,11 @@ class _MultiGraphState extends State<MultiGraph> {
                   ListTile(
                     title: const Text('Save'),
                     selected: _selectedIndex == 2,
-                    onTap: () {
+                    onTap: () async {
                       SaveAction(context, _Graphs[_tabIndex - 1].gs)
                           .invoke(SaveIntent());
-                          captureImage( _Graphs[_tabIndex - 1].key);
+                      captureImage(_Graphs[_tabIndex - 1].mykey,
+                          _Graphs[_tabIndex - 1].graphName);
                       _onItemTapped(2);
                       // Then close the drawer
                       Navigator.pop(context);
@@ -405,9 +404,7 @@ class _MultiGraphState extends State<MultiGraph> {
                     child: Expanded(
                         child: IndexedStack(
                             index: _tabIndex,
-                            children: <Widget>[home()] +
-                                _Graphs.map((child) => child as Widget)
-                                    .toList())))
+                            children: <Widget>[home()] + _Graphs)))
               ],
             ),
           );
@@ -416,9 +413,14 @@ class _MultiGraphState extends State<MultiGraph> {
 }
 
 class Graph extends StatefulWidget {
-  Graph({required this.key, required this.gs, required this.graphName})
+  Graph(
+      {Key? key,
+      required this.mykey,
+      required this.gs,
+      required this.graphName})
       : super(key: key);
-  final Key key;
+  final GlobalKey mykey;
+
   final GraphState gs;
   final String graphName;
   @override
@@ -501,8 +503,9 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
         widget.gs.nodeLayout[widget.gs.graph_nodes.last]!;
     _animateResetInitialize(lastNodePosition);
     return Center(
+      child: RepaintBoundary(
+      key: widget.mykey,
         child: InteractiveViewer(
-      key: widget.key,
       transformationController: _transformationController,
       clipBehavior: Clip.none,
       boundaryMargin: const EdgeInsets.all(0),
@@ -572,6 +575,6 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
                     .toList()
                     .cast<Widget>()),
       ),
-    ));
+    )));
   }
 }

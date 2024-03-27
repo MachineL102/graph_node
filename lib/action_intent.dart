@@ -1,4 +1,3 @@
-import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'graph_state.dart';
 import 'dart:ui' as ui;
@@ -11,23 +10,22 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
 import 'package:flutter/rendering.dart';
 
-Future<Uint8List?> captureImage(
-  GlobalKey key,
-) async {
+Future<void> captureImage(GlobalKey key, String graphName) async {
   try {
     RenderRepaintBoundary boundary =
-        key.currentContext?.findRenderObject() as RenderRepaintBoundary;
+        key.currentContext!.findRenderObject() as RenderRepaintBoundary;
     ui.Image image =
         await boundary.toImage(pixelRatio: 3.0); // 为了提高图像质量，可以设置更高的像素密度
     ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final directory = await getApplicationDocumentsDirectory();
-    // 创建一个新的文件，文件名为当前时间戳
-    final file = File(
-        '${directory.path}/image_${DateTime.now().millisecondsSinceEpoch}.png');
-    return byteData?.buffer.asUint8List();
+    final file = File('${directory.path}/$graphName.png');
+    Uint8List tmp = (byteData?.buffer.asUint8List())!;
+    await file.writeAsBytes(tmp);
+    print('图像保存到${file.path}');
+    return;
   } catch (e) {
     print('捕获图像失败：$e');
-    return null;
+    return;
   }
 }
 
