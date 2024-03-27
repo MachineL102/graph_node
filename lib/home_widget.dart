@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart';
 
 class home extends StatelessWidget {
-  const home({super.key});
+  const home({required this.parentOpenNewPage, super.key});
+  final Function(String) parentOpenNewPage;
 
   Future<List<File>> loadImages() async {
     final directory = await getApplicationDocumentsDirectory();
@@ -41,23 +43,59 @@ class home extends StatelessWidget {
           return Text('Error: ${snapshot.error}');
         } else {
           // 如果Future对象已完成并且没有错误，则根据异步操作的结果构建UI
-          if(snapshot.data != null) print('snapshot.data!.length:${snapshot.data!.length}');
+          if (snapshot.data != null)
+            print('snapshot.data!.length:${snapshot.data!.length}');
           return (snapshot.data != null && snapshot.data!.isNotEmpty)
-              ?Padding(padding: const EdgeInsets.fromLTRB(200, 200, 200, 200), child: GridView.count(
-                  primary: false,
-                  padding: const EdgeInsets.all(20),
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 0,
-                  crossAxisCount: 2,
-                  children: snapshot.data!
-                      .map(
-                        (file) => Container(
-                          padding: const EdgeInsets.all(100),
-                          color: Colors.white,
-                          child: Image.file(file, fit: BoxFit.fill,),
-                        ),
-                      )
-                      .toList()),) 
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(200, 200, 200, 200),
+                  child: GridView.count(
+                      primary: false,
+                      padding: const EdgeInsets.all(20),
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 0,
+                      crossAxisCount: 2,
+                      children: snapshot.data!
+                          .map(
+                            (file) => Container(
+                              padding:
+                                  const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                              color: Colors.green,
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                      flex: 1,
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Expanded(flex: 1, child: Container()),
+                                          Expanded(
+                                            flex: 3,
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                // 处理点击事件的逻辑
+                                                print('Image clicked!');
+                                              },
+                                              onDoubleTap: () {
+                                                parentOpenNewPage('${basenameWithoutExtension(file.path)}.json');
+                                                print('Image double clicked!');
+                                              },
+                                              child: Image.file(
+                                                file,
+                                                fit: BoxFit.fill,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(flex: 1, child: Container()),
+                                        ],
+                                      )),
+                                  Expanded(flex: 1, child: Text(basenameWithoutExtension(file.path)))
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList()),
+                )
               : const Center(
                   child: Text('create your first note'),
                 );

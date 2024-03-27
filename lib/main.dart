@@ -4,6 +4,7 @@ import 'graph_state.dart';
 import 'package:graph_layout/graph_layout.dart';
 import 'node_view.dart';
 import 'action_intent.dart';
+import 'package:path/path.dart';
 import 'package:vector_math/vector_math.dart' as vector_math;
 import 'setting.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,8 @@ import 'line_painter.dart';
 import 'dart:ui' as ui;
 import 'utils.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 // ctrl + z ctrl + f format；
 // remove white margin, which can use nodeRadius = Screensize/2
@@ -404,11 +407,38 @@ class _MultiGraphState extends State<MultiGraph> {
                     child: Expanded(
                         child: IndexedStack(
                             index: _tabIndex,
-                            children: <Widget>[home()] + _Graphs)))
+                            children: <Widget>[
+                                  home(
+                                    parentOpenNewPage: openNewPage,
+                                  )
+                                ] +
+                                _Graphs)))
               ],
             ),
           );
         }));
+  }
+
+  void openNewPage(
+    String fileName,
+  ) {
+    // 不需要同步等待异步结果时，直接在同步函数中调用异步函数即可，并且不需要await
+    getApplicationDocumentsDirectory().then((appDocumentsDir) {
+      final String filePath = '${appDocumentsDir.path}/$fileName';
+      setState(() {
+        _tabIndex += 1;
+
+        File graphFile = File(filePath);
+        String contents = graphFile.readAsStringSync();
+        GraphState gs = GraphState.fromJson(contents);
+        _Graphs.insert(
+            _tabIndex - 1,
+            Graph(
+                mykey: GlobalKey(),
+                gs: gs,
+                graphName: basenameWithoutExtension(graphFile.path)));
+      });
+    });
   }
 }
 
@@ -446,7 +476,8 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
     }
   }
 
-  void _animateResetInitialize(vector_math.Vector2 lastNodePosition) {
+  void _animateResetInitialize(
+      vector_math.Vector2 lastNodePosition, BuildContext context) {
     _controllerReset.reset();
     double x = -lastNodePosition[0];
     double y = -lastNodePosition[1];
@@ -501,80 +532,87 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
         Provider.of<SettingState>(context, listen: true);
     vector_math.Vector2 lastNodePosition =
         widget.gs.nodeLayout[widget.gs.graph_nodes.last]!;
-    _animateResetInitialize(lastNodePosition);
+    _animateResetInitialize(lastNodePosition, context);
     return Center(
-      child: RepaintBoundary(
-      key: widget.mykey,
-        child: InteractiveViewer(
-      transformationController: _transformationController,
-      clipBehavior: Clip.none,
-      boundaryMargin: const EdgeInsets.all(0),
-      constrained: false,
-      minScale: 0.05,
-      maxScale: 5,
-      onInteractionStart: _onInteractionStart,
-      child: Container(
-        width: settingState.graphSize, // 设置一个固定的宽度
-        height: settingState.graphSize, // 设置一个固定的高度
-        child: Stack(
-            children: <Widget>[
-                  Container(
-                      width: settingState.graphSize, // 设置一个固定的宽度
-                      height: settingState.graphSize, // 设置一个固定的高度
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment(0.8, 1),
-                          colors: <Color>[
-                            Theme.of(context).colorScheme.inversePrimary,
-                            Color.fromARGB(255, 227, 120, 136),
-                            Color.fromARGB(255, 207, 89, 35),
-                          ], // Gradient from https://learnui.design/tools/gradient-generator.html
-                          tileMode: TileMode.mirror,
-                        ),
-                      ))
-                ] +
-                widget.gs.edgeList
-                    .map((edge) {
-                      final String text = widget.gs.titles[edge.left] ?? 'init';
-                      final TextStyle textStyle = GoogleFonts.getFont(
-                        settingState.fontStyle,
-                        fontSize: settingState.fontSize,
-                      );
-                      final ui.Size txtSize = textSize(text, textStyle);
-                      final String text2 =
-                          widget.gs.titles[edge.left] ?? 'init';
-                      final TextStyle textStyle2 = GoogleFonts.getFont(
-                        settingState.fontStyle,
-                        fontSize: settingState.fontSize,
-                      );
-                      final ui.Size txtSize2 = textSize(text, textStyle);
+        child: RepaintBoundary(
+            key: widget.mykey,
+            child: InteractiveViewer(
+              transformationController: _transformationController,
+              clipBehavior: Clip.none,
+              boundaryMargin: const EdgeInsets.all(0),
+              constrained: false,
+              minScale: 0.05,
+              maxScale: 5,
+              onInteractionStart: _onInteractionStart,
+              child: Container(
+                width: settingState.graphSize, // 设置一个固定的宽度
+                height: settingState.graphSize, // 设置一个固定的高度
+                child: Stack(
+                    children: <Widget>[
+                          Container(
+                              width: settingState.graphSize, // 设置一个固定的宽度
+                              height: settingState.graphSize, // 设置一个固定的高度
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment(0.8, 1),
+                                  colors: <Color>[
+                                    Theme.of(context)
+                                        .colorScheme
+                                        .inversePrimary,
+                                    Color.fromARGB(255, 227, 120, 136),
+                                    Color.fromARGB(255, 207, 89, 35),
+                                  ], // Gradient from https://learnui.design/tools/gradient-generator.html
+                                  tileMode: TileMode.mirror,
+                                ),
+                              ))
+                        ] +
+                        widget.gs.edgeList
+                            .map((edge) {
+                              final String text =
+                                  widget.gs.titles[edge.left] ?? 'init';
+                              final TextStyle textStyle = GoogleFonts.getFont(
+                                settingState.fontStyle,
+                                fontSize: settingState.fontSize,
+                              );
+                              final ui.Size txtSize = textSize(text, textStyle);
+                              final String text2 =
+                                  widget.gs.titles[edge.left] ?? 'init';
+                              final TextStyle textStyle2 = GoogleFonts.getFont(
+                                settingState.fontStyle,
+                                fontSize: settingState.fontSize,
+                              );
+                              final ui.Size txtSize2 =
+                                  textSize(text, textStyle);
 
-                      return CustomPaint(
-                        painter: LinePainter(
-                            startPoint: ui.Size(
-                                widget.gs.nodeLayout[edge.left]![0],
-                                widget.gs.nodeLayout[edge.left]![1]),
-                            endPoint: ui.Size(
-                                widget.gs.nodeLayout[edge.right]![0],
-                                widget.gs.nodeLayout[edge.right]![1]),
-                            directed: widget.gs.directions[edge] ?? false),
-                      );
-                    })
-                    .toList()
-                    .cast<Widget>() +
-                widget.gs.nodeLayout.entries
-                    .map((MapEntry<Node, vector_math.Vector2> entry) {
-                      return NodeView(
-                        gs: widget.gs,
-                        node: entry.key,
-                        color: Theme.of(context).colorScheme.inversePrimary,
-                        onUpdate: _updateCounter,
-                      );
-                    })
-                    .toList()
-                    .cast<Widget>()),
-      ),
-    )));
+                              return CustomPaint(
+                                painter: LinePainter(
+                                    startPoint: ui.Size(
+                                        widget.gs.nodeLayout[edge.left]![0],
+                                        widget.gs.nodeLayout[edge.left]![1]),
+                                    endPoint: ui.Size(
+                                        widget.gs.nodeLayout[edge.right]![0],
+                                        widget.gs.nodeLayout[edge.right]![1]),
+                                    directed:
+                                        widget.gs.directions[edge] ?? false),
+                              );
+                            })
+                            .toList()
+                            .cast<Widget>() +
+                        widget.gs.nodeLayout.entries
+                            .map((MapEntry<Node, vector_math.Vector2> entry) {
+                              return NodeView(
+                                gs: widget.gs,
+                                node: entry.key,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .inversePrimary,
+                                onUpdate: _updateCounter,
+                              );
+                            })
+                            .toList()
+                            .cast<Widget>()),
+              ),
+            )));
   }
 }
