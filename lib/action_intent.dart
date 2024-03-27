@@ -1,4 +1,3 @@
-import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'graph_state.dart';
 import 'dart:ui' as ui;
@@ -7,6 +6,38 @@ import 'dart:io';
 import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:typed_data';
+import 'package:flutter/rendering.dart';
+
+Future<void> captureImage(GlobalKey key, String graphName) async {
+  try {
+    RenderRepaintBoundary boundary =
+        key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    ui.Image image =
+        await boundary.toImage(pixelRatio: 3.0); // 为了提高图像质量，可以设置更高的像素密度
+    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/$graphName.png');
+    Uint8List tmp = (byteData?.buffer.asUint8List())!;
+    await file.writeAsBytes(tmp);
+    print('图像保存到${file.path}');
+    return;
+  } catch (e) {
+    print('捕获图像失败：$e');
+    return;
+  }
+}
+
+void saveToDocumentsDirectory(GraphState gs, String fileName) async {
+  final Directory appDocumentsDir = await getApplicationDocumentsDirectory();
+  final String filePath = '${appDocumentsDir.path}/$fileName.json';
+  print('save to $filePath');
+  String json = jsonEncode(gs);
+  File file = File(filePath);
+  await file.writeAsString(json);
+  return;
+}
 
 ui.Size _textSize(String text, TextStyle style) {
   final TextPainter textPainter = TextPainter(
