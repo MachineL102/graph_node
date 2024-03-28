@@ -204,3 +204,15 @@ class OpenAction extends Action<OpenIntent> {
     }
   }
 }
+
+class ScreenshotIntent extends Intent {
+  const ScreenshotIntent();
+}
+
+class ScreenshotAction extends Action<ScreenshotIntent> {
+  ScreenshotAction();
+  @override
+  void invoke(ScreenshotIntent intent) {
+    print("ScreenshotAction");
+  }
+}
