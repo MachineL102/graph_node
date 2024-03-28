@@ -36,7 +36,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (context) => SettingState()),
+          ChangeNotifierProvider(
+              create: (context) => SettingState()), // 全局设置更改会通知相应子组件
         ],
         child: Consumer<SettingState>(builder: (context, settingState, child) {
           return MaterialApp(
@@ -134,9 +135,12 @@ class _MultiGraphState extends State<MultiGraph> {
     }
   }
 
+  // 标识当前用户所在第几个页面，0表示home，从1开始表示打开的笔记索引，访问笔记索引时需要用_tabIndex-1
   int _tabIndex = 0;
+  // 页面的主要内容，图结构组件
   List<Graph> _Graphs = [];
   late List<double> fontSizes;
+
   @override
   Widget build(BuildContext context_root) {
     return Shortcuts(
@@ -200,12 +204,9 @@ class _MultiGraphState extends State<MultiGraph> {
                     },
                   ),
                 ]),
+            //侧边栏
             drawer: Drawer(
-              // Add a ListView to the drawer. This ensures the user can scroll
-              // through the options in the drawer if there isn't enough vertical
-              // space to fit everything.
               child: ListView(
-                // Important: Remove any padding from the ListView.
                 padding: EdgeInsets.zero,
                 children: [
                   const DrawerHeader(
@@ -293,6 +294,7 @@ class _MultiGraphState extends State<MultiGraph> {
                 ],
               ),
             ),
+            // 自定义tabBar包含了顶部tab和下面的页面内容
             body: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
@@ -422,6 +424,7 @@ class _MultiGraphState extends State<MultiGraph> {
   void openNewPage(
     String fileName,
   ) {
+    // 输入为不带路径前缀的笔记文件名，文件是json格式
     // 不需要同步等待异步结果时，直接在同步函数中调用异步函数即可，并且不需要await
     getApplicationDocumentsDirectory().then((appDocumentsDir) {
       final String filePath = '${appDocumentsDir.path}/$fileName';
@@ -462,6 +465,7 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
     setState(() {});
   }
 
+  // Animate和TransformationController相关组件用于在用户创建新的节点后，将新的节点定位到屏幕中间方便用户编辑
   final TransformationController _transformationController =
       TransformationController();
   Animation<Matrix4>? _animationReset;
@@ -535,7 +539,8 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
     _animateResetInitialize(lastNodePosition, context);
     return Center(
         child: RepaintBoundary(
-            key: widget.mykey,
+            // 用于保存笔记时截取缩略图在home页面展示
+            key: widget.mykey, // global key用于获取组件context并获取缩略图
             child: InteractiveViewer(
               transformationController: _transformationController,
               clipBehavior: Clip.none,
@@ -545,13 +550,13 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
               maxScale: 5,
               onInteractionStart: _onInteractionStart,
               child: Container(
-                width: settingState.graphSize, // 设置一个固定的宽度
-                height: settingState.graphSize, // 设置一个固定的高度
+                width: settingState.graphSize,
+                height: settingState.graphSize,
                 child: Stack(
                     children: <Widget>[
                           Container(
-                              width: settingState.graphSize, // 设置一个固定的宽度
-                              height: settingState.graphSize, // 设置一个固定的高度
+                              width: settingState.graphSize,
+                              height: settingState.graphSize,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topLeft,
@@ -567,24 +572,9 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
                                 ),
                               ))
                         ] +
+                        // 绘制所有节点连线
                         widget.gs.edgeList
                             .map((edge) {
-                              final String text =
-                                  widget.gs.titles[edge.left] ?? 'init';
-                              final TextStyle textStyle = GoogleFonts.getFont(
-                                settingState.fontStyle,
-                                fontSize: settingState.fontSize,
-                              );
-                              final ui.Size txtSize = textSize(text, textStyle);
-                              final String text2 =
-                                  widget.gs.titles[edge.left] ?? 'init';
-                              final TextStyle textStyle2 = GoogleFonts.getFont(
-                                settingState.fontStyle,
-                                fontSize: settingState.fontSize,
-                              );
-                              final ui.Size txtSize2 =
-                                  textSize(text, textStyle);
-
                               return CustomPaint(
                                 painter: LinePainter(
                                     startPoint: ui.Size(
@@ -599,6 +589,7 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
                             })
                             .toList()
                             .cast<Widget>() +
+                        // 绘制所有节点
                         widget.gs.nodeLayout.entries
                             .map((MapEntry<Node, vector_math.Vector2> entry) {
                               return NodeView(

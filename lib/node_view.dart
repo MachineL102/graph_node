@@ -39,6 +39,9 @@ class _NodeViewState extends State<NodeView> {
     _mainTextController =
         TextEditingController(text: widget.gs.mainTexts[widget.node]);
     _mainTextController.addListener(_updateDisplayText);
+    _displayText.value = _mainTextController.text;
+    // 初始化时调用先根据文本内容刷新一次UI
+    _buildMarkdownWidget(_displayText.value);
   }
 
   void _updateDisplayText() {
@@ -57,6 +60,34 @@ class _NodeViewState extends State<NodeView> {
   }
 
   WrapAlignment _wrapAlignment = WrapAlignment.start;
+
+  Widget _buildMarkdownWidget(String value) {
+    //print('_buildMarkdownWidget _displayText.value:${_displayText.value}');
+    return Markdown(
+      key: Key(_wrapAlignment.toString()),
+      data: value,
+      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+        textAlign: _wrapAlignment,
+        pPadding: const EdgeInsets.only(bottom: 4.0),
+        h1Align: _wrapAlignment,
+        h1Padding: const EdgeInsets.only(left: 4.0),
+        h2Align: _wrapAlignment,
+        h2Padding: const EdgeInsets.only(left: 8.0),
+        h3Align: _wrapAlignment,
+        h3Padding: const EdgeInsets.only(left: 12.0),
+        h4Align: _wrapAlignment,
+        h4Padding: const EdgeInsets.only(left: 16.0),
+        h5Align: _wrapAlignment,
+        h5Padding: const EdgeInsets.only(left: 20.0),
+        h6Align: _wrapAlignment,
+        h6Padding: const EdgeInsets.only(left: 24.0),
+        unorderedListAlign: _wrapAlignment,
+        orderedListAlign: _wrapAlignment,
+        blockquoteAlign: _wrapAlignment,
+        codeblockAlign: _wrapAlignment,
+      ),
+    );
+  }
 
   void _createTextEditWindow(BuildContext context) {
     _titleController.text = widget.gs.titles[widget.node] ?? "panic";
@@ -82,32 +113,8 @@ class _NodeViewState extends State<NodeView> {
                         (BuildContext context, String value, Widget? child) {
                       // This builder will only get called when the _counter
                       // is updated.
-                      return Markdown(
-                        key: Key(_wrapAlignment.toString()),
-                        data: value,
-                        styleSheet:
-                            MarkdownStyleSheet.fromTheme(Theme.of(context))
-                                .copyWith(
-                          textAlign: _wrapAlignment,
-                          pPadding: const EdgeInsets.only(bottom: 4.0),
-                          h1Align: _wrapAlignment,
-                          h1Padding: const EdgeInsets.only(left: 4.0),
-                          h2Align: _wrapAlignment,
-                          h2Padding: const EdgeInsets.only(left: 8.0),
-                          h3Align: _wrapAlignment,
-                          h3Padding: const EdgeInsets.only(left: 12.0),
-                          h4Align: _wrapAlignment,
-                          h4Padding: const EdgeInsets.only(left: 16.0),
-                          h5Align: _wrapAlignment,
-                          h5Padding: const EdgeInsets.only(left: 20.0),
-                          h6Align: _wrapAlignment,
-                          h6Padding: const EdgeInsets.only(left: 24.0),
-                          unorderedListAlign: _wrapAlignment,
-                          orderedListAlign: _wrapAlignment,
-                          blockquoteAlign: _wrapAlignment,
-                          codeblockAlign: _wrapAlignment,
-                        ),
-                      );
+                      _displayText.value = value;
+                      return _buildMarkdownWidget(value);
                     }),
               ),
               Container(
