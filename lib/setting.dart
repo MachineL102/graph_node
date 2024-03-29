@@ -7,7 +7,7 @@ import 'utils.dart';
 
 class SettingState extends ChangeNotifier {
   double _fontSize = 20.0;
-  double _graphSize = 3000.0;
+  double _graphSize = 3000.0; // 图的大小，会根据算法自动调整
   String _fontStyle = 'ABeeZee';
   Color _mainColor = Color(0xffffb56b);
   

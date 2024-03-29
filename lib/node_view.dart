@@ -29,6 +29,8 @@ class NodeView extends StatefulWidget {
 class _NodeViewState extends State<NodeView> {
   late TextEditingController _titleController;
   late TextEditingController _mainTextController;
+  ValueNotifier<String> _displayText = ValueNotifier<String>('');
+
   @override
   void initState() {
     super.initState();
@@ -36,16 +38,56 @@ class _NodeViewState extends State<NodeView> {
         TextEditingController(text: widget.gs.titles[widget.node]);
     _mainTextController =
         TextEditingController(text: widget.gs.mainTexts[widget.node]);
+    _mainTextController.addListener(_updateDisplayText);
+    _displayText.value = _mainTextController.text;
+    // 初始化时调用先根据文本内容刷新一次UI
+    _buildMarkdownWidget(_displayText.value);
+  }
+
+  void _updateDisplayText() {
+    setState(() {
+      _displayText.value = _mainTextController.text;
+      print('_displayText$_displayText');
+    });
   }
 
   @override
   void dispose() {
+    _mainTextController.removeListener(_updateDisplayText);
     _titleController.dispose();
     _mainTextController.dispose();
     super.dispose();
   }
 
   WrapAlignment _wrapAlignment = WrapAlignment.start;
+
+  Widget _buildMarkdownWidget(String value) {
+    //print('_buildMarkdownWidget _displayText.value:${_displayText.value}');
+    return Markdown(
+      key: Key(_wrapAlignment.toString()),
+      data: value,
+      // styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      //   textAlign: _wrapAlignment,
+      //   pPadding: const EdgeInsets.only(bottom: 4.0),
+      //   h1Align: _wrapAlignment,
+      //   h1Padding: const EdgeInsets.only(left: 4.0),
+      //   h2Align: _wrapAlignment,
+      //   h2Padding: const EdgeInsets.only(left: 8.0),
+      //   h3Align: _wrapAlignment,
+      //   h3Padding: const EdgeInsets.only(left: 12.0),
+      //   h4Align: _wrapAlignment,
+      //   h4Padding: const EdgeInsets.only(left: 16.0),
+      //   h5Align: _wrapAlignment,
+      //   h5Padding: const EdgeInsets.only(left: 20.0),
+      //   h6Align: _wrapAlignment,
+      //   h6Padding: const EdgeInsets.only(left: 24.0),
+      //   unorderedListAlign: _wrapAlignment,
+      //   orderedListAlign: _wrapAlignment,
+      //   blockquoteAlign: _wrapAlignment,
+      //   codeblockAlign: _wrapAlignment,
+      // ),
+    );
+  }
 
   void _createTextEditWindow(BuildContext context) {
     _titleController.text = widget.gs.titles[widget.node] ?? "panic";
@@ -55,69 +97,43 @@ class _NodeViewState extends State<NodeView> {
     showDialog(
       context: context,
       builder: (context2) {
+        print('build AlertDialog');
         return AlertDialog(
           title: Text('Edit Node'),
+          scrollable: false,
           content: Row(
             // mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                flex: 2,
-                child: Column(children: [
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight:
-                          MediaQuery.of(context).size.height, // 设置最小高度为屏幕高度
-                    ),
-                    child: Container(
-                      width: 1000, // 设置容器宽度为屏幕宽度
-                      height: 1000, // 设置容器宽度为屏幕宽度
-safearea;listview;
-                      child: Markdown(
-                        key: Key(_wrapAlignment.toString()),
-                        data:
-                            "# graph_note A new Flutter project. \n## Getting Started ![image](https://github.com/MachineL102/graph_node/assets/55221695/ecaa5680-84f2-4587-a1c8-6291f5b6e0d6)\n${_mainTextController.text}",
-                        imageDirectory: 'https://raw.githubusercontent.com',
-                        styleSheet:
-                            MarkdownStyleSheet.fromTheme(Theme.of(context))
-                                .copyWith(
-                          textAlign: _wrapAlignment,
-                          pPadding: const EdgeInsets.only(bottom: 4.0),
-                          h1Align: _wrapAlignment,
-                          h1Padding: const EdgeInsets.only(left: 4.0),
-                          h2Align: _wrapAlignment,
-                          h2Padding: const EdgeInsets.only(left: 8.0),
-                          h3Align: _wrapAlignment,
-                          h3Padding: const EdgeInsets.only(left: 12.0),
-                          h4Align: _wrapAlignment,
-                          h4Padding: const EdgeInsets.only(left: 16.0),
-                          h5Align: _wrapAlignment,
-                          h5Padding: const EdgeInsets.only(left: 20.0),
-                          h6Align: _wrapAlignment,
-                          h6Padding: const EdgeInsets.only(left: 24.0),
-                          unorderedListAlign: _wrapAlignment,
-                          orderedListAlign: _wrapAlignment,
-                          blockquoteAlign: _wrapAlignment,
-                          codeblockAlign: _wrapAlignment,
-                        ),
-                      ),
-                    ),
-                  ),
-                ]),
+              Container(
+                //height: 3000,
+                width: 1200, //必须指定
+                child: ValueListenableBuilder<String>(
+                    valueListenable: _displayText,
+                    builder:
+                        (BuildContext context, String value, Widget? child) {
+                      // This builder will only get called when the _counter
+                      // is updated.
+                      _displayText.value = value;
+                      return _buildMarkdownWidget(value);
+                    }),
               ),
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: _titleController,
-                      decoration: InputDecoration(labelText: 'Title'),
-                    ),
-                    TextField(
-                      controller: _mainTextController,
-                      decoration: InputDecoration(labelText: 'Main Text'),
-                      maxLines: null,
-                    ),
-                  ],
+              Container(
+                //height: 3000,
+                width: 1200, //必须指定
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _titleController,
+                        decoration: InputDecoration(labelText: 'Title'),
+                      ),
+                      TextField(
+                        controller: _mainTextController,
+                        decoration: InputDecoration(labelText: 'Main Text'),
+                        maxLines: null,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

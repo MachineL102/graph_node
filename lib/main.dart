@@ -15,7 +15,27 @@ import 'utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:screen_capturer/screen_capturer.dart';
+class LoggingActionDispatcher extends ActionDispatcher {
+  @override
+  Object? invokeAction(
+    covariant Action<Intent> action,
+    covariant Intent intent, [
+    BuildContext? context,
+  ]) {
+    print('Action invoked: $action($intent) from $context');
+    super.invokeAction(action, intent, context);
 
+    return null;
+  }
+}
+
+// CapturedData? capturedData = await screenCapturer.capture(
+//   mode: CaptureMode.region, // screen, window
+//   imagePath: '<path>',
+//   copyToClipboard: true,
+// );
 // ctrl + z ctrl + f format；
 // remove white margin, which can use nodeRadius = Screensize/2
 // remove node
@@ -36,7 +56,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (context) => SettingState()),
+          ChangeNotifierProvider(
+              create: (context) => SettingState()), // 全局设置更改会通知相应子组件
         ],
         child: Consumer<SettingState>(builder: (context, settingState, child) {
           return MaterialApp(
@@ -134,294 +155,304 @@ class _MultiGraphState extends State<MultiGraph> {
     }
   }
 
+  // 标识当前用户所在第几个页面，0表示home，从1开始表示打开的笔记索引，访问笔记索引时需要用_tabIndex-1
   int _tabIndex = 0;
+  // 页面的主要内容，图结构组件
   List<Graph> _Graphs = [];
   late List<double> fontSizes;
+
   @override
   Widget build(BuildContext context_root) {
     return Shortcuts(
         shortcuts: <ShortcutActivator, Intent>{
-          const SingleActivator(LogicalKeyboardKey.keyS, control: true):
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS):
               SaveIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyA):
+              ScreenshotIntent(),
         },
-        child: Consumer<SettingState>(builder: (context, settingState, child) {
-          print("widget using Consumer rebuilt");
-          return Scaffold(
-            appBar: AppBar(
-                title: const Text('InteractiveViewer'),
-                backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-                actions: [
-                  SettingItem(
-                    settingDesc: "font size",
-                    child: DropdownMenu<String>(
-                      menuHeight: 400,
-                      initialSelection: settingState.fontSize.toString(),
-                      onSelected: (String? newValue) {
-                        settingState.fontSize = double.parse(newValue!);
-                      },
-                      dropdownMenuEntries: fontSizes.map((double fontSize) {
-                        return DropdownMenuEntry<String>(
-                          label: fontSize.toString(),
-                          value: fontSize.toString(),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  SettingItem(
-                      settingDesc: "font style",
-                      child: Consumer<SettingState>(
-                          builder: (context, settingState, child) {
-                        print("widget using Consumer settingState rebuilt");
-                        return DropdownMenu<String>(
+        child: Actions(
+      dispatcher: LoggingActionDispatcher(),
+            actions: <Type, Action<Intent>>{
+              SaveIntent: SaveAction(
+                  context_root,
+                  (_tabIndex - 1 >= 0 &&
+                          _tabIndex - 1 < _Graphs.length &&
+                          _Graphs.isNotEmpty)
+                      ? _Graphs[_tabIndex - 1].gs
+                      : null),
+                      ScreenshotIntent:ScreenshotAction()
+            },
+            child:
+                Consumer<SettingState>(builder: (context, settingState, child) {
+              print("widget using Consumer rebuilt");
+              return Scaffold(
+                appBar: AppBar(
+                    title: const Text('InteractiveViewer'),
+                    backgroundColor:
+                        Theme.of(context).colorScheme.inversePrimary,
+                    actions: [
+                      SettingItem(
+                        settingDesc: "font size",
+                        child: DropdownMenu<String>(
                           menuHeight: 400,
-                          initialSelection: settingState.fontStyle,
+                          initialSelection: settingState.fontSize.toString(),
                           onSelected: (String? newValue) {
-                            settingState.fontStyle = newValue!;
+                            settingState.fontSize = double.parse(newValue!);
                           },
-                          dropdownMenuEntries:
-                              GoogleFonts.asMap().keys.map((String font) {
+                          dropdownMenuEntries: fontSizes.map((double fontSize) {
                             return DropdownMenuEntry<String>(
-                              label: font,
-                              value: font,
+                              label: fontSize.toString(),
+                              value: fontSize.toString(),
                             );
                           }).toList(),
-                        );
-                      })),
-                  IconButton(
-                    icon: Icon(Icons.psychology_alt),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.black,
-                    ),
-                    tooltip: "随机主题",
-                    onPressed: () {
-                      setState(() {
-                        settingState.mainColor = getRandomColor();
-                      });
-                    },
-                  ),
-                ]),
-            drawer: Drawer(
-              // Add a ListView to the drawer. This ensures the user can scroll
-              // through the options in the drawer if there isn't enough vertical
-              // space to fit everything.
-              child: ListView(
-                // Important: Remove any padding from the ListView.
-                padding: EdgeInsets.zero,
-                children: [
-                  const DrawerHeader(
-                    // decoration: BoxDecoration(
-                    //   color: Colors.blue,
-                    // ),
-                    child: Text('Drawer Header'),
-                  ),
-                  ListTile(
-                    title: const Text('Save to data dir'),
-                    onTap: () {
-                      saveToDocumentsDirectory(_Graphs[_tabIndex - 1].gs,
-                          _Graphs[_tabIndex - 1].graphName);
-                      captureImage(_Graphs[_tabIndex - 1].mykey,
-                          _Graphs[_tabIndex - 1].graphName);
-                      Navigator.pop(context);
-                    },
-                  ),
-                  ListTile(
-                    title: const Text('New'),
-                    selected: _selectedIndex == 0,
-                    onTap: () async {
-                      String? fileName = await _showNameDialog(context);
-                      if (fileName != null) {
-                        setState(() {
-                          _tabIndex += 1;
-                          print(_tabIndex);
-                          GraphState gs = GraphState();
-                          saveToDocumentsDirectory(gs, fileName);
-                          _Graphs.insert(
-                              _tabIndex - 1,
-                              Graph(
-                                mykey: GlobalKey(),
-                                gs: gs,
-                                graphName: fileName,
-                              ));
-                        });
-                      }
-
-                      _onItemTapped(0);
-                      // Then close the drawer
-                      Navigator.pop(context);
-                    },
-                  ),
-                  ListTile(
-                    title: const Text('Open'),
-                    selected: _selectedIndex == 1,
-                    onTap: () async {
-                      var value =
-                          await OpenAction(context_root).invoke(OpenIntent());
-                      setState(() {
-                        if (value.$1 != null && value.$2 != null) {
-                          setState(() {
-                            _tabIndex += 1;
-                            _Graphs.insert(
-                                _tabIndex - 1,
-                                Graph(
-                                    mykey: GlobalKey(),
-                                    gs: value.$1!,
-                                    graphName: value.$2!));
-                          });
-                        } else {
-                          print('open error');
-                        }
-                      });
-
-                      _onItemTapped(1);
-                      // Then close the drawer
-                      Navigator.pop(context);
-                    },
-                  ),
-                  ListTile(
-                    title: const Text('Save'),
-                    selected: _selectedIndex == 2,
-                    onTap: () async {
-                      SaveAction(context, _Graphs[_tabIndex - 1].gs)
-                          .invoke(SaveIntent());
-                      captureImage(_Graphs[_tabIndex - 1].mykey,
-                          _Graphs[_tabIndex - 1].graphName);
-                      _onItemTapped(2);
-                      // Then close the drawer
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            body: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                // TabBar
-                Container(
-                  color: Theme.of(context).colorScheme.inversePrimary,
-
-                  child: Row(
-                      children: <Widget>[
-                            IconButton(
-                              icon: Icon(Icons.home),
-                              onPressed: () {
-                                // 按钮被点击时的操作
-                                setState(() {
-                                  _tabIndex = 0;
-                                });
+                        ),
+                      ),
+                      SettingItem(
+                          settingDesc: "font style",
+                          child: Consumer<SettingState>(
+                              builder: (context, settingState, child) {
+                            print("widget using Consumer settingState rebuilt");
+                            return DropdownMenu<String>(
+                              menuHeight: 400,
+                              initialSelection: settingState.fontStyle,
+                              onSelected: (String? newValue) {
+                                settingState.fontStyle = newValue!;
                               },
-                            ),
-                          ] +
-                          List<Widget>.generate(
-                            _Graphs.length,
-                            (index) => Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                    color: Color.fromARGB(31, 226, 213, 213),
-                                    width: 1.0),
-                              ),
-                              child: Container(
-                                  color: index == _tabIndex - 1
-                                      ? Theme.of(context)
-                                          .colorScheme
-                                          .inversePrimary
-                                      : getLighterColor(
-                                          Theme.of(context)
-                                              .colorScheme
-                                              .inversePrimary,
-                                          0.5),
-                                  child: Row(
-                                    children: [
-                                      TextButton(
-                                        style: TextButton.styleFrom(
-                                          textStyle: GoogleFonts.merriweather(
-                                              fontSize: 15.0),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius
-                                                .zero, // 将边框半径设置为零以获得方角矩形
-                                          ),
-                                          elevation: 0,
-                                          foregroundColor:
-                                              index == _tabIndex - 1
-                                                  ? Theme.of(context)
-                                                      .colorScheme
-                                                      .inversePrimary
-                                                  : getLighterColor(
-                                                      Theme.of(context)
-                                                          .colorScheme
-                                                          .inversePrimary,
-                                                      0.5),
-                                        ),
-                                        onPressed: () {
-                                          // 按钮被点击时的操作
-                                          setState(() {
-                                            _tabIndex = index + 1;
-                                          });
-                                        },
-                                        child: Text(
-                                          _Graphs[index].graphName,
-                                          style: GoogleFonts.merriweather(
-                                              fontSize: 15.0,
-                                              color: Colors.black),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.close),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: Colors.black,
-                                          backgroundColor:
-                                              index == _tabIndex - 1
-                                                  ? Theme.of(context)
-                                                      .colorScheme
-                                                      .inversePrimary
-                                                  : getLighterColor(
-                                                      Theme.of(context)
-                                                          .colorScheme
-                                                          .inversePrimary,
-                                                      0.5),
-                                        ),
-                                        onPressed: () {
-                                          setState(() {
-                                            _Graphs.removeAt(index);
-                                            if (index == _tabIndex - 1)
-                                              _tabIndex -= 1;
-                                          });
-                                        },
-                                      ),
-                                    ],
-                                  )),
-                            ),
-                          )),
-                  // graph view
+                              dropdownMenuEntries:
+                                  GoogleFonts.asMap().keys.map((String font) {
+                                return DropdownMenuEntry<String>(
+                                  label: font,
+                                  value: font,
+                                );
+                              }).toList(),
+                            );
+                          })),
+                      IconButton(
+                        icon: Icon(Icons.psychology_alt),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.black,
+                        ),
+                        tooltip: "随机主题",
+                        onPressed: () {
+                          setState(() {
+                            settingState.mainColor = getRandomColor();
+                          });
+                        },
+                      ),
+                    ]),
+                //侧边栏
+                drawer: Drawer(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      const DrawerHeader(
+                        // decoration: BoxDecoration(
+                        //   color: Colors.blue,
+                        // ),
+                        child: Text('Drawer Header'),
+                      ),
+                      ListTile(
+                        title: const Text('Save to data dir'),
+                        onTap: () {
+                          saveToDocumentsDirectory(_Graphs[_tabIndex - 1].gs,
+                              _Graphs[_tabIndex - 1].graphName);
+                          captureImage(_Graphs[_tabIndex - 1].mykey,
+                              _Graphs[_tabIndex - 1].graphName);
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ListTile(
+                        title: const Text('New'),
+                        selected: _selectedIndex == 0,
+                        onTap: () async {
+                          String? fileName = await _showNameDialog(context);
+                          if (fileName != null) {
+                            setState(() {
+                              _tabIndex += 1;
+                              print(_tabIndex);
+                              GraphState gs = GraphState();
+                              saveToDocumentsDirectory(gs, fileName);
+                              _Graphs.insert(
+                                  _tabIndex - 1,
+                                  Graph(
+                                    mykey: GlobalKey(),
+                                    gs: gs,
+                                    graphName: fileName,
+                                  ));
+                            });
+                          }
+
+                          _onItemTapped(0);
+                          // Then close the drawer
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ListTile(
+                        title: const Text('Open'),
+                        selected: _selectedIndex == 1,
+                        onTap: () async {
+                          var value = await OpenAction(context_root)
+                              .invoke(OpenIntent());
+                          setState(() {
+                            if (value.$1 != null && value.$2 != null) {
+                              setState(() {
+                                _tabIndex += 1;
+                                _Graphs.insert(
+                                    _tabIndex - 1,
+                                    Graph(
+                                        mykey: GlobalKey(),
+                                        gs: value.$1!,
+                                        graphName: value.$2!));
+                              });
+                            } else {
+                              print('open error');
+                            }
+                          });
+
+                          _onItemTapped(1);
+                          // Then close the drawer
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ListTile(
+                        title: const Text('Save'),
+                        selected: _selectedIndex == 2,
+                        onTap: () async {
+                          SaveAction(context, _Graphs[_tabIndex - 1].gs)
+                              .invoke(SaveIntent());
+                          captureImage(_Graphs[_tabIndex - 1].mykey,
+                              _Graphs[_tabIndex - 1].graphName);
+                          _onItemTapped(2);
+                          // Then close the drawer
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                Actions(
-                    actions: <Type, Action<Intent>>{
-                      SaveIntent: SaveAction(
-                          context,
-                          (_tabIndex - 1 >= 0 &&
-                                  _tabIndex - 1 < _Graphs.length &&
-                                  _Graphs.isNotEmpty)
-                              ? _Graphs[_tabIndex - 1].gs
-                              : null),
-                    },
-                    child: Expanded(
-                        child: IndexedStack(
-                            index: _tabIndex,
-                            children: <Widget>[
-                                  home(
-                                    parentOpenNewPage: openNewPage,
-                                  )
-                                ] +
-                                _Graphs)))
-              ],
-            ),
-          );
-        }));
+                // 自定义tabBar包含了顶部tab和下面的页面内容
+                body: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    // TabBar
+                    Container(
+                      color: Theme.of(context).colorScheme.inversePrimary,
+
+                      child: Row(
+                          children: <Widget>[
+                                IconButton(
+                                  icon: Icon(Icons.home),
+                                  onPressed: () {
+                                    // 按钮被点击时的操作
+                                    setState(() {
+                                      _tabIndex = 0;
+                                    });
+                                  },
+                                ),
+                              ] +
+                              List<Widget>.generate(
+                                _Graphs.length,
+                                (index) => Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color:
+                                            Color.fromARGB(31, 226, 213, 213),
+                                        width: 1.0),
+                                  ),
+                                  child: Container(
+                                      color: index == _tabIndex - 1
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .inversePrimary
+                                          : getLighterColor(
+                                              Theme.of(context)
+                                                  .colorScheme
+                                                  .inversePrimary,
+                                              0.5),
+                                      child: Row(
+                                        children: [
+                                          TextButton(
+                                            style: TextButton.styleFrom(
+                                              textStyle:
+                                                  GoogleFonts.merriweather(
+                                                      fontSize: 15.0),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius
+                                                    .zero, // 将边框半径设置为零以获得方角矩形
+                                              ),
+                                              elevation: 0,
+                                              foregroundColor:
+                                                  index == _tabIndex - 1
+                                                      ? Theme.of(context)
+                                                          .colorScheme
+                                                          .inversePrimary
+                                                      : getLighterColor(
+                                                          Theme.of(context)
+                                                              .colorScheme
+                                                              .inversePrimary,
+                                                          0.5),
+                                            ),
+                                            onPressed: () {
+                                              // 按钮被点击时的操作
+                                              setState(() {
+                                                _tabIndex = index + 1;
+                                              });
+                                            },
+                                            child: Text(
+                                              _Graphs[index].graphName,
+                                              style: GoogleFonts.merriweather(
+                                                  fontSize: 15.0,
+                                                  color: Colors.black),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.close),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: Colors.black,
+                                              backgroundColor:
+                                                  index == _tabIndex - 1
+                                                      ? Theme.of(context)
+                                                          .colorScheme
+                                                          .inversePrimary
+                                                      : getLighterColor(
+                                                          Theme.of(context)
+                                                              .colorScheme
+                                                              .inversePrimary,
+                                                          0.5),
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                _Graphs.removeAt(index);
+                                                if (index == _tabIndex - 1)
+                                                  _tabIndex -= 1;
+                                              });
+                                            },
+                                          ),
+                                        ],
+                                      )),
+                                ),
+                              )),
+                      // graph view
+                    ),
+                    Expanded(
+                            child: IndexedStack(
+                                index: _tabIndex,
+                                children: <Widget>[
+                                      home(
+                                        parentOpenNewPage: openNewPage,
+                                      )
+                                    ] +
+                                    _Graphs))
+                  ],
+                ),
+              );
+            })));
   }
 
   void openNewPage(
     String fileName,
   ) {
+    // 输入为不带路径前缀的笔记文件名，文件是json格式
     // 不需要同步等待异步结果时，直接在同步函数中调用异步函数即可，并且不需要await
     getApplicationDocumentsDirectory().then((appDocumentsDir) {
       final String filePath = '${appDocumentsDir.path}/$fileName';
@@ -462,6 +493,7 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
     setState(() {});
   }
 
+  // Animate和TransformationController相关组件用于在用户创建新的节点后，将新的节点定位到屏幕中间方便用户编辑
   final TransformationController _transformationController =
       TransformationController();
   Animation<Matrix4>? _animationReset;
@@ -526,6 +558,8 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  ScreenshotController screenshotController = ScreenshotController();
+
   @override
   Widget build(BuildContext context) {
     SettingState settingState =
@@ -535,7 +569,8 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
     _animateResetInitialize(lastNodePosition, context);
     return Center(
         child: RepaintBoundary(
-            key: widget.mykey,
+            // 用于保存笔记时截取缩略图在home页面展示
+            key: widget.mykey, // global key用于获取组件context并获取缩略图
             child: InteractiveViewer(
               transformationController: _transformationController,
               clipBehavior: Clip.none,
@@ -545,13 +580,13 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
               maxScale: 5,
               onInteractionStart: _onInteractionStart,
               child: Container(
-                width: settingState.graphSize, // 设置一个固定的宽度
-                height: settingState.graphSize, // 设置一个固定的高度
+                width: settingState.graphSize,
+                height: settingState.graphSize,
                 child: Stack(
                     children: <Widget>[
                           Container(
-                              width: settingState.graphSize, // 设置一个固定的宽度
-                              height: settingState.graphSize, // 设置一个固定的高度
+                              width: settingState.graphSize,
+                              height: settingState.graphSize,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topLeft,
@@ -567,24 +602,9 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
                                 ),
                               ))
                         ] +
+                        // 绘制所有节点连线
                         widget.gs.edgeList
                             .map((edge) {
-                              final String text =
-                                  widget.gs.titles[edge.left] ?? 'init';
-                              final TextStyle textStyle = GoogleFonts.getFont(
-                                settingState.fontStyle,
-                                fontSize: settingState.fontSize,
-                              );
-                              final ui.Size txtSize = textSize(text, textStyle);
-                              final String text2 =
-                                  widget.gs.titles[edge.left] ?? 'init';
-                              final TextStyle textStyle2 = GoogleFonts.getFont(
-                                settingState.fontStyle,
-                                fontSize: settingState.fontSize,
-                              );
-                              final ui.Size txtSize2 =
-                                  textSize(text, textStyle);
-
                               return CustomPaint(
                                 painter: LinePainter(
                                     startPoint: ui.Size(
@@ -599,6 +619,7 @@ class _GraphState extends State<Graph> with TickerProviderStateMixin {
                             })
                             .toList()
                             .cast<Widget>() +
+                        // 绘制所有节点
                         widget.gs.nodeLayout.entries
                             .map((MapEntry<Node, vector_math.Vector2> entry) {
                               return NodeView(
