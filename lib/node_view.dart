@@ -47,7 +47,6 @@ class _NodeViewState extends State<NodeView> {
   void _updateDisplayText() {
     setState(() {
       _displayText.value = _mainTextController.text;
-      print('_displayText$_displayText');
     });
   }
 
@@ -97,7 +96,6 @@ class _NodeViewState extends State<NodeView> {
     showDialog(
       context: context,
       builder: (context2) {
-        print('build AlertDialog');
         return AlertDialog(
           title: Text('Edit Node'),
           scrollable: false,
@@ -106,7 +104,7 @@ class _NodeViewState extends State<NodeView> {
             children: [
               Container(
                 //height: 3000,
-                width: 1200, //必须指定
+                width: MediaQuery.of(context).size.width /2,//必须指定
                 child: ValueListenableBuilder<String>(
                     valueListenable: _displayText,
                     builder:
@@ -118,8 +116,7 @@ class _NodeViewState extends State<NodeView> {
                     }),
               ),
               Container(
-                //height: 3000,
-                width: 1200, //必须指定
+                width: MediaQuery.of(context).size.width /3,//必须指定
                 child: SingleChildScrollView(
                   child: Column(
                     children: [

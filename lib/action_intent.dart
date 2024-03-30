@@ -245,8 +245,7 @@ class ScreenshotAction extends Action<ScreenshotIntent> {
   void invoke(ScreenshotIntent intent) async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     String filePath =
-        '${documentsDirectory.path}\\$dataDirName\\${getCurrentTimeInSeconds()}.png';
-    print('filePath: $filePath');
+        '${documentsDirectory.path}/$dataDirName/${getCurrentTimeInSeconds()}.png';
 
     CapturedData? aa = (await screenCapturer.capture(
       mode: CaptureMode.region, // screen, window
@@ -256,28 +255,17 @@ class ScreenshotAction extends Action<ScreenshotIntent> {
     ));
     ClipboardData? clipboardData =
         await Clipboard.getData(Clipboard.kTextPlain);
-    if (clipboardData != null && clipboardData.text != null) {
-      print('Clipboard text: ${clipboardData.text}');
-    } else {
-      print('Clipboard is empty or doesn\'t contain text');
-    }
-    print('aa:$aa');
+
     Clipboard.setData(const ClipboardData(text: ''));
-    Clipboard.setData(ClipboardData(text: "![Image](file:${filePath})"));
-    clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-    if (clipboardData != null && clipboardData.text != null) {
-      print('Clipboard text: ${clipboardData.text}');
-    } else {
-      print('Clipboard is empty or doesn\'t contain text');
-    }
+    Clipboard.setData(ClipboardData(text: "![Image](file:///${filePath.replaceAll('\\', '/')})"));
+    print(aa);
     if (aa != null) {
-      print("ScreenshotAction");
       ClipboardData? clipboardData =
           await Clipboard.getData(Clipboard.kTextPlain);
       if (clipboardData != null && clipboardData.text != null) {
-        print('Clipboard text: ${clipboardData.text}');
+        // print('Clipboard text: ${clipboardData.text}');
       } else {
-        print('Clipboard is empty or doesn\'t contain text');
+        // print('Clipboard is empty or doesn\'t contain text');
       }
     }
   }

@@ -15,7 +15,7 @@ class home extends StatelessWidget {
 
     // 找到所有png后缀的文件
     for (FileSystemEntity file in files) {
-      print(file);
+      //print(file);
       if (file is File && file.path.endsWith('.png')) {
         pngFiles.add(file);
       }

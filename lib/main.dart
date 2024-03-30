@@ -17,6 +17,17 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:screen_capturer/screen_capturer.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
+import 'chat.dart';
+// import 'package:flutter_gemini/flutter_gemini.dart';
+
+import 'dart:io';
+
+import 'package:google_generative_ai/google_generative_ai.dart';
+
+String _apiKey = Platform.environment['API_KEY'] ?? "";
 
 class LoggingActionDispatcher extends ActionDispatcher {
   @override
@@ -43,7 +54,12 @@ class LoggingActionDispatcher extends ActionDispatcher {
 // multi-subgraph
 // persistent state
 
-void main() => runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // 必须加上这一行。
+  await windowManager.ensureInitialized();
+  return runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -158,12 +174,19 @@ class _MultiGraphState extends State<MultiGraph> {
   List<Graph> _Graphs = [];
   late List<double> fontSizes;
   FocusNode _focusNode = FocusNode();
+  final controller = TextEditingController();
   @override
   void dispose() {
     _focusNode.dispose(); // 释放资源
     super.dispose();
   }
 
+  bool _loading = false;
+
+  bool get loading => _loading;
+
+  set loading(bool set) => setState(() => _loading = set);
+  bool _aiWindowOpen = false;
   @override
   Widget build(BuildContext context_root) {
     return Consumer<SettingState>(builder: (context, settingState, child) {
@@ -219,6 +242,17 @@ class _MultiGraphState extends State<MultiGraph> {
                   setState(() {
                     settingState.mainColor = getRandomColor();
                   });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.camera_alt),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.black,
+                ),
+                tooltip: "截屏",
+                onPressed: () {
+                  windowManager.minimize();
+                  ScreenshotAction().invoke(ScreenshotIntent());
                 },
               ),
             ]),
@@ -343,9 +377,68 @@ class _MultiGraphState extends State<MultiGraph> {
                 child: Focus(
                   focusNode: _focusNode,
                   autofocus: true,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Stack(
+                    //mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
+                      Stack(
+                        children: [
+                          IndexedStack(
+                              index: _tabIndex,
+                              children: <Widget>[
+                                    home(
+                                      parentOpenNewPage: openNewPage,
+                                    )
+                                  ] +
+                                  _Graphs),
+                          
+                          if (_aiWindowOpen)
+                            Positioned(
+                                left: 0,
+                                top: 50,
+                                width: MediaQuery.of(context).size.width / 4,
+                                height:
+                                    MediaQuery.of(context).size.height / 1.5,
+                                child: Padding(
+                                  padding: EdgeInsets.all(0),
+                                  child: Card(
+                                      color: settingState.mainColor,
+                                      elevation: 8.0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10.0),
+                                      ),
+                                      margin: EdgeInsets.all(0.0),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Text('AI'),
+                                          Expanded(
+                                              child: SelectionArea(
+                                                  child: ChatWidget(
+                                            apiKey: _apiKey,
+                                          )))
+                                        ],
+                                      )),
+                                ))
+                        ],
+                      ),
+                      Positioned(
+                              left: 0,
+                              top: 50,
+                              child: FloatingActionButton(
+                                  child: _aiWindowOpen
+                                      ? Icon(Icons.remove)
+                                      : Icon(Icons.add),
+                                  backgroundColor: settingState.mainColor,
+                                  hoverElevation: 5.0,
+                                  tooltip: 'Ai Chat',
+                                  onPressed: () {
+                                    setState(() {
+                                      _aiWindowOpen = !_aiWindowOpen;
+                                    });
+                                  })),
                       // TabBar
                       Container(
                         color: Theme.of(context).colorScheme.inversePrimary,
@@ -446,15 +539,6 @@ class _MultiGraphState extends State<MultiGraph> {
                                 )),
                         // graph view
                       ),
-                      Expanded(
-                          child: IndexedStack(
-                              index: _tabIndex,
-                              children: <Widget>[
-                                    home(
-                                      parentOpenNewPage: openNewPage,
-                                    )
-                                  ] +
-                                  _Graphs))
                     ],
                   ),
                 ))),
