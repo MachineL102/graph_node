@@ -21,6 +21,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'chat.dart';
+import 'package:flutter/scheduler.dart';
+
 // import 'package:flutter_gemini/flutter_gemini.dart';
 
 import 'dart:io';
@@ -112,10 +114,39 @@ class MultiGraph extends StatefulWidget {
   State<MultiGraph> createState() => _MultiGraphState();
 }
 
-class _MultiGraphState extends State<MultiGraph> {
+class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   @override
   void initState() {
+    _state = SchedulerBinding.instance.lifecycleState;
+    WidgetsBinding.instance.addObserver(this);
+    _listener = AppLifecycleListener(
+      // onShow: () => _handleTransition('show'),
+      // onResume: () => _handleTransition('resume'),
+      // onHide: () => _handleTransition('hide'),
+      // onInactive: () => _handleTransition('inactive'),
+      onInactive: () {
+        // 关闭时自动保存
+        print("on onInactive");
+        for (var graph in _Graphs) {
+          saveToDocumentsDirectory(graph.gs, graph.graphName);
+          captureImage(graph.mykey, graph.graphName);
+        }
+      },
+      // onPause: () => _handleTransition('pause'),
+      onDetach: () {
+        // 关闭时自动保存
+        print("on Detach");
+        for (var graph in _Graphs) {
+          saveToDocumentsDirectory(graph.gs, graph.graphName);
+          captureImage(graph.mykey, graph.graphName);
+        }
+      },
+      // onRestart: () => _handleTransition('restart'),
+      // This fires for each state change. Callbacks above fire only for
+      // specific state transitions.
+      // onStateChange: _handleStateChange,
+    );
     _selectedIndex = 0;
     _tabIndex = 0;
     _Graphs = [];
@@ -175,9 +206,14 @@ class _MultiGraphState extends State<MultiGraph> {
   late List<double> fontSizes;
   FocusNode _focusNode = FocusNode();
   final controller = TextEditingController();
+  late final AppLifecycleListener _listener;
+  late AppLifecycleState? _state;
   @override
   void dispose() {
     _focusNode.dispose(); // 释放资源
+    _listener.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    print("dispose called");
     super.dispose();
   }
 
@@ -390,7 +426,6 @@ class _MultiGraphState extends State<MultiGraph> {
                                     )
                                   ] +
                                   _Graphs),
-                          
                           if (_aiWindowOpen)
                             Positioned(
                                 left: 0,
@@ -425,20 +460,20 @@ class _MultiGraphState extends State<MultiGraph> {
                         ],
                       ),
                       Positioned(
-                              left: 0,
-                              top: 50,
-                              child: FloatingActionButton(
-                                  child: _aiWindowOpen
-                                      ? Icon(Icons.remove)
-                                      : Icon(Icons.add),
-                                  backgroundColor: settingState.mainColor,
-                                  hoverElevation: 5.0,
-                                  tooltip: 'Ai Chat',
-                                  onPressed: () {
-                                    setState(() {
-                                      _aiWindowOpen = !_aiWindowOpen;
-                                    });
-                                  })),
+                          left: 0,
+                          top: 50,
+                          child: FloatingActionButton(
+                              child: _aiWindowOpen
+                                  ? Icon(Icons.remove)
+                                  : Icon(Icons.add),
+                              backgroundColor: settingState.mainColor,
+                              hoverElevation: 5.0,
+                              tooltip: 'Ai Chat',
+                              onPressed: () {
+                                setState(() {
+                                  _aiWindowOpen = !_aiWindowOpen;
+                                });
+                              })),
                       // TabBar
                       Container(
                         color: Theme.of(context).colorScheme.inversePrimary,

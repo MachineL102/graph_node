@@ -16,7 +16,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+
 import 'dart:io';
+import 'dart:async';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
 
 String _apiKey = Platform.environment['API_KEY'] ?? "";
 
@@ -192,24 +196,31 @@ class _ChatWidgetState extends State<ChatWidget> {
       _loading = true;
     });
     try {
-      ByteData catBytes = await rootBundle.load('assets/images/cat.jpg');
-      ByteData sconeBytes = await rootBundle.load('assets/images/scones.jpg');
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+      );
+      if (result == null) {
+        setState(() {
+          _loading = false;
+        });
+        return;
+      }
+      File file = File(result.files.single.path!);
+      Uint8List contents = await file.readAsBytes();
       final content = [
         Content.multi([
           TextPart(message),
           // The only accepted mime types are image/*.
-          DataPart('image/jpeg', catBytes.buffer.asUint8List()),
-          DataPart('image/jpeg', sconeBytes.buffer.asUint8List()),
+          DataPart('image/${path.extension(file.path).replaceAll('.', '')}',
+              contents),
         ])
       ];
       _generatedContent.add((
-        image: Image.asset("assets/images/cat.jpg"),
+        image: Image.file(
+          file,
+          fit: BoxFit.scaleDown,
+        ),
         text: message,
-        fromUser: true
-      ));
-      _generatedContent.add((
-        image: Image.asset("assets/images/scones.jpg"),
-        text: null,
         fromUser: true
       ));
 
