@@ -47,20 +47,22 @@ class home extends StatelessWidget {
             print('snapshot.data!.length:${snapshot.data!.length}');
           return (snapshot.data != null && snapshot.data!.isNotEmpty)
               ? Padding(
-                  padding: const EdgeInsets.fromLTRB(200, 200, 200, 200),
+                  padding: const EdgeInsets.fromLTRB(30, 30, 30, 30),
                   child: GridView.count(
                       primary: false,
-                      padding: const EdgeInsets.all(20),
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 0,
-                      crossAxisCount: 2,
+                      padding: const EdgeInsets.all(30),
+                      crossAxisSpacing: 15,
+                      mainAxisSpacing: 12,
+                      crossAxisCount: 3,
                       children: snapshot.data!
                           .map(
-                            (file) => Container(
-                              padding:
-                                  const EdgeInsets.fromLTRB(10, 10, 10, 10),
-                              color: Colors.green,
-                              child: Column(
+                            (file) =>
+//                                Container(
+//                              padding:
+//                                  const EdgeInsets.fromLTRB(10, 10, 10, 10),
+//                              color: Colors.green,
+//                              child:
+                              Column(
                                 children: [
                                   Expanded(
                                       flex: 1,
@@ -80,18 +82,22 @@ class home extends StatelessWidget {
                                                 parentOpenNewPage('${basenameWithoutExtension(file.path)}.json');
                                                 print('Image double clicked!');
                                               },
-                                              child: Image.file(
-                                                file,
-                                                fit: BoxFit.fill,
+                                              child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(5),
+                                                    child: Image.file(
+                                                        file,
+                                                        fit: BoxFit.cover,
+                                                    ),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                          Expanded(flex: 1, child: Container()),
+//                                          ),
+//                                          Expanded(flex: 1, child: Container()),
                                         ],
                                       )),
                                   Expanded(flex: 1, child: Text(basenameWithoutExtension(file.path)))
                                 ],
-                              ),
+//                              ),
                             ),
                           )
                           .toList()),
