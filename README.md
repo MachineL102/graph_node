@@ -19,3 +19,4 @@
 3.按住ctrl键多选节点创建关系
 4.通过设置调节字体
 5.右上角自动随机换肤
+6.支持gemini，需要申请google api：https://aistudio.google.com/app/prompts/new_chat/?utm_source=agd&utm_medium=referral&utm_campaign=core-cta&utm_content=
