@@ -9,6 +9,28 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
 import 'package:flutter/rendering.dart';
+import 'package:screen_capturer/screen_capturer.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart' as intl;
+
+const String dataDirName = 'GraphNote';
+void checkAndCreateDirectory() async {
+  // 获取应用程序文档目录
+  Directory documentsDirectory = await getApplicationDocumentsDirectory();
+  String dirPath = '${documentsDirectory.path}/$dataDirName';
+
+  // 创建子目录
+  Directory dir = Directory(dirPath);
+  bool isDirExist = await dir.exists();
+
+  if (!isDirExist) {
+    // 如果目录不存在，则创建目录
+    await dir.create(recursive: true);
+    print('Directory created: $dirPath');
+  } else {
+    print('Directory already exists: $dirPath');
+  }
+}
 
 Future<void> captureImage(GlobalKey key, String graphName) async {
   try {
@@ -205,6 +227,14 @@ class OpenAction extends Action<OpenIntent> {
   }
 }
 
+String getCurrentTimeInSeconds() {
+  DateTime now = DateTime.now();
+  // 使用DateFormat将时间格式化为指定的格式，这里使用'yyyyMMddHHmmss'表示年月日时分秒
+  intl.DateFormat formatter = intl.DateFormat('yyyyMMddHHmmss');
+  // 格式化当前时间并返回字符串
+  return formatter.format(now);
+}
+
 class ScreenshotIntent extends Intent {
   const ScreenshotIntent();
 }
@@ -212,7 +242,31 @@ class ScreenshotIntent extends Intent {
 class ScreenshotAction extends Action<ScreenshotIntent> {
   ScreenshotAction();
   @override
-  void invoke(ScreenshotIntent intent) {
-    print("ScreenshotAction");
+  void invoke(ScreenshotIntent intent) async {
+    Directory documentsDirectory = await getApplicationDocumentsDirectory();
+    String filePath =
+        '${documentsDirectory.path}/$dataDirName/${getCurrentTimeInSeconds()}.png';
+
+    CapturedData? aa = (await screenCapturer.capture(
+      mode: CaptureMode.region, // screen, window
+      imagePath: filePath,
+      copyToClipboard: true,
+      silent: true,
+    ));
+    ClipboardData? clipboardData =
+        await Clipboard.getData(Clipboard.kTextPlain);
+
+    Clipboard.setData(const ClipboardData(text: ''));
+    Clipboard.setData(ClipboardData(text: "![Image](file:///${filePath.replaceAll('\\', '/')})"));
+    print(aa);
+    if (aa != null) {
+      ClipboardData? clipboardData =
+          await Clipboard.getData(Clipboard.kTextPlain);
+      if (clipboardData != null && clipboardData.text != null) {
+        // print('Clipboard text: ${clipboardData.text}');
+      } else {
+        // print('Clipboard is empty or doesn\'t contain text');
+      }
+    }
   }
 }

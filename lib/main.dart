@@ -17,6 +17,18 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:screen_capturer/screen_capturer.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
+import 'chat.dart';
+// import 'package:flutter_gemini/flutter_gemini.dart';
+
+import 'dart:io';
+
+import 'package:google_generative_ai/google_generative_ai.dart';
+
+String _apiKey = Platform.environment['API_KEY'] ?? "";
+
 class LoggingActionDispatcher extends ActionDispatcher {
   @override
   Object? invokeAction(
@@ -31,11 +43,6 @@ class LoggingActionDispatcher extends ActionDispatcher {
   }
 }
 
-// CapturedData? capturedData = await screenCapturer.capture(
-//   mode: CaptureMode.region, // screen, window
-//   imagePath: '<path>',
-//   copyToClipboard: true,
-// );
 // ctrl + z ctrl + f format；
 // remove white margin, which can use nodeRadius = Screensize/2
 // remove node
@@ -47,7 +54,12 @@ class LoggingActionDispatcher extends ActionDispatcher {
 // multi-subgraph
 // persistent state
 
-void main() => runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // 必须加上这一行。
+  await windowManager.ensureInitialized();
+  return runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -108,6 +120,7 @@ class _MultiGraphState extends State<MultiGraph> {
     _tabIndex = 0;
     _Graphs = [];
     fontSizes = generateList(10.0, 50.0, 1.0);
+    checkAndCreateDirectory();
     super.initState();
   }
 
@@ -160,293 +173,377 @@ class _MultiGraphState extends State<MultiGraph> {
   // 页面的主要内容，图结构组件
   List<Graph> _Graphs = [];
   late List<double> fontSizes;
+  FocusNode _focusNode = FocusNode();
+  final controller = TextEditingController();
+  @override
+  void dispose() {
+    _focusNode.dispose(); // 释放资源
+    super.dispose();
+  }
 
+  bool _loading = false;
+
+  bool get loading => _loading;
+
+  set loading(bool set) => setState(() => _loading = set);
+  bool _aiWindowOpen = false;
   @override
   Widget build(BuildContext context_root) {
-    return Shortcuts(
-        shortcuts: <ShortcutActivator, Intent>{
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS):
-              SaveIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyA):
-              ScreenshotIntent(),
-        },
-        child: Actions(
-      dispatcher: LoggingActionDispatcher(),
-            actions: <Type, Action<Intent>>{
-              SaveIntent: SaveAction(
-                  context_root,
-                  (_tabIndex - 1 >= 0 &&
-                          _tabIndex - 1 < _Graphs.length &&
-                          _Graphs.isNotEmpty)
-                      ? _Graphs[_tabIndex - 1].gs
-                      : null),
-                      ScreenshotIntent:ScreenshotAction()
+    return Consumer<SettingState>(builder: (context, settingState, child) {
+      print("widget using Consumer rebuilt");
+      return Scaffold(
+        appBar: AppBar(
+            title: const Text('InteractiveViewer'),
+            backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+            actions: [
+              SettingItem(
+                settingDesc: "font size",
+                child: DropdownMenu<String>(
+                  menuHeight: 400,
+                  initialSelection: settingState.fontSize.toString(),
+                  onSelected: (String? newValue) {
+                    settingState.fontSize = double.parse(newValue!);
+                  },
+                  dropdownMenuEntries: fontSizes.map((double fontSize) {
+                    return DropdownMenuEntry<String>(
+                      label: fontSize.toString(),
+                      value: fontSize.toString(),
+                    );
+                  }).toList(),
+                ),
+              ),
+              SettingItem(
+                  settingDesc: "font style",
+                  child: Consumer<SettingState>(
+                      builder: (context, settingState, child) {
+                    print("widget using Consumer settingState rebuilt");
+                    return DropdownMenu<String>(
+                      menuHeight: 400,
+                      initialSelection: settingState.fontStyle,
+                      onSelected: (String? newValue) {
+                        settingState.fontStyle = newValue!;
+                      },
+                      dropdownMenuEntries:
+                          GoogleFonts.asMap().keys.map((String font) {
+                        return DropdownMenuEntry<String>(
+                          label: font,
+                          value: font,
+                        );
+                      }).toList(),
+                    );
+                  })),
+              IconButton(
+                icon: Icon(Icons.psychology_alt),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.black,
+                ),
+                tooltip: "随机主题",
+                onPressed: () {
+                  setState(() {
+                    settingState.mainColor = getRandomColor();
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.camera_alt),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.black,
+                ),
+                tooltip: "截屏",
+                onPressed: () {
+                  windowManager.minimize();
+                  ScreenshotAction().invoke(ScreenshotIntent());
+                },
+              ),
+            ]),
+        //侧边栏
+        drawer: Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              const DrawerHeader(
+                // decoration: BoxDecoration(
+                //   color: Colors.blue,
+                // ),
+                child: Text('Drawer Header'),
+              ),
+              ListTile(
+                title: const Text('Save to data dir'),
+                onTap: () {
+                  saveToDocumentsDirectory(_Graphs[_tabIndex - 1].gs,
+                      _Graphs[_tabIndex - 1].graphName);
+                  captureImage(_Graphs[_tabIndex - 1].mykey,
+                      _Graphs[_tabIndex - 1].graphName);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text('New'),
+                selected: _selectedIndex == 0,
+                onTap: () async {
+                  String? fileName = await _showNameDialog(context);
+                  if (fileName != null) {
+                    setState(() {
+                      _tabIndex += 1;
+                      print(_tabIndex);
+                      GraphState gs = GraphState();
+                      saveToDocumentsDirectory(gs, fileName);
+                      _Graphs.insert(
+                          _tabIndex - 1,
+                          Graph(
+                            mykey: GlobalKey(),
+                            gs: gs,
+                            graphName: fileName,
+                          ));
+                    });
+                  }
+
+                  _onItemTapped(0);
+                  // Then close the drawer
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text('Open'),
+                selected: _selectedIndex == 1,
+                onTap: () async {
+                  var value =
+                      await OpenAction(context_root).invoke(OpenIntent());
+                  setState(() {
+                    if (value.$1 != null && value.$2 != null) {
+                      setState(() {
+                        _tabIndex += 1;
+                        _Graphs.insert(
+                            _tabIndex - 1,
+                            Graph(
+                                mykey: GlobalKey(),
+                                gs: value.$1!,
+                                graphName: value.$2!));
+                      });
+                    } else {
+                      print('open error');
+                    }
+                  });
+
+                  _onItemTapped(1);
+                  // Then close the drawer
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text('Save'),
+                selected: _selectedIndex == 2,
+                onTap: () async {
+                  SaveAction(context, _Graphs[_tabIndex - 1].gs)
+                      .invoke(SaveIntent());
+                  captureImage(_Graphs[_tabIndex - 1].mykey,
+                      _Graphs[_tabIndex - 1].graphName);
+                  _onItemTapped(2);
+                  // Then close the drawer
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        ),
+        // 自定义tabBar包含了顶部tab和下面的页面内容
+        body: Shortcuts(
+            shortcuts: <ShortcutActivator, Intent>{
+              LogicalKeySet(
+                LogicalKeyboardKey.controlLeft,
+                LogicalKeyboardKey.keyS,
+              ): SaveIntent(),
+              LogicalKeySet(
+                      LogicalKeyboardKey.altLeft, LogicalKeyboardKey.keyA):
+                  ScreenshotIntent(),
+              LogicalKeySet(
+                  LogicalKeyboardKey.controlLeft,
+                  LogicalKeyboardKey.altLeft,
+                  LogicalKeyboardKey.keyA): ScreenshotIntent(),
+              //LogicalKeySet(LogicalKeyboardKey.keyA): ScreenshotIntent(),
             },
-            child:
-                Consumer<SettingState>(builder: (context, settingState, child) {
-              print("widget using Consumer rebuilt");
-              return Scaffold(
-                appBar: AppBar(
-                    title: const Text('InteractiveViewer'),
-                    backgroundColor:
-                        Theme.of(context).colorScheme.inversePrimary,
-                    actions: [
-                      SettingItem(
-                        settingDesc: "font size",
-                        child: DropdownMenu<String>(
-                          menuHeight: 400,
-                          initialSelection: settingState.fontSize.toString(),
-                          onSelected: (String? newValue) {
-                            settingState.fontSize = double.parse(newValue!);
-                          },
-                          dropdownMenuEntries: fontSizes.map((double fontSize) {
-                            return DropdownMenuEntry<String>(
-                              label: fontSize.toString(),
-                              value: fontSize.toString(),
-                            );
-                          }).toList(),
-                        ),
+            child: Actions(
+                dispatcher: LoggingActionDispatcher(),
+                actions: <Type, Action<Intent>>{
+                  SaveIntent: SaveAction(
+                      context,
+                      (_tabIndex - 1 >= 0 &&
+                              _tabIndex - 1 < _Graphs.length &&
+                              _Graphs.isNotEmpty)
+                          ? _Graphs[_tabIndex - 1].gs
+                          : null),
+                  ScreenshotIntent: ScreenshotAction()
+                },
+                child: Focus(
+                  focusNode: _focusNode,
+                  autofocus: true,
+                  child: Stack(
+                    //mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Stack(
+                        children: [
+                          IndexedStack(
+                              index: _tabIndex,
+                              children: <Widget>[
+                                    home(
+                                      parentOpenNewPage: openNewPage,
+                                    )
+                                  ] +
+                                  _Graphs),
+                          
+                          if (_aiWindowOpen)
+                            Positioned(
+                                left: 0,
+                                top: 50,
+                                width: MediaQuery.of(context).size.width / 4,
+                                height:
+                                    MediaQuery.of(context).size.height / 1.5,
+                                child: Padding(
+                                  padding: EdgeInsets.all(0),
+                                  child: Card(
+                                      color: settingState.mainColor,
+                                      elevation: 8.0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10.0),
+                                      ),
+                                      margin: EdgeInsets.all(0.0),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Text('AI'),
+                                          Expanded(
+                                              child: SelectionArea(
+                                                  child: ChatWidget(
+                                            apiKey: _apiKey,
+                                          )))
+                                        ],
+                                      )),
+                                ))
+                        ],
                       ),
-                      SettingItem(
-                          settingDesc: "font style",
-                          child: Consumer<SettingState>(
-                              builder: (context, settingState, child) {
-                            print("widget using Consumer settingState rebuilt");
-                            return DropdownMenu<String>(
-                              menuHeight: 400,
-                              initialSelection: settingState.fontStyle,
-                              onSelected: (String? newValue) {
-                                settingState.fontStyle = newValue!;
-                              },
-                              dropdownMenuEntries:
-                                  GoogleFonts.asMap().keys.map((String font) {
-                                return DropdownMenuEntry<String>(
-                                  label: font,
-                                  value: font,
-                                );
-                              }).toList(),
-                            );
-                          })),
-                      IconButton(
-                        icon: Icon(Icons.psychology_alt),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.black,
-                        ),
-                        tooltip: "随机主题",
-                        onPressed: () {
-                          setState(() {
-                            settingState.mainColor = getRandomColor();
-                          });
-                        },
-                      ),
-                    ]),
-                //侧边栏
-                drawer: Drawer(
-                  child: ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      const DrawerHeader(
-                        // decoration: BoxDecoration(
-                        //   color: Colors.blue,
-                        // ),
-                        child: Text('Drawer Header'),
-                      ),
-                      ListTile(
-                        title: const Text('Save to data dir'),
-                        onTap: () {
-                          saveToDocumentsDirectory(_Graphs[_tabIndex - 1].gs,
-                              _Graphs[_tabIndex - 1].graphName);
-                          captureImage(_Graphs[_tabIndex - 1].mykey,
-                              _Graphs[_tabIndex - 1].graphName);
-                          Navigator.pop(context);
-                        },
-                      ),
-                      ListTile(
-                        title: const Text('New'),
-                        selected: _selectedIndex == 0,
-                        onTap: () async {
-                          String? fileName = await _showNameDialog(context);
-                          if (fileName != null) {
-                            setState(() {
-                              _tabIndex += 1;
-                              print(_tabIndex);
-                              GraphState gs = GraphState();
-                              saveToDocumentsDirectory(gs, fileName);
-                              _Graphs.insert(
-                                  _tabIndex - 1,
-                                  Graph(
-                                    mykey: GlobalKey(),
-                                    gs: gs,
-                                    graphName: fileName,
-                                  ));
-                            });
-                          }
+                      Positioned(
+                              left: 0,
+                              top: 50,
+                              child: FloatingActionButton(
+                                  child: _aiWindowOpen
+                                      ? Icon(Icons.remove)
+                                      : Icon(Icons.add),
+                                  backgroundColor: settingState.mainColor,
+                                  hoverElevation: 5.0,
+                                  tooltip: 'Ai Chat',
+                                  onPressed: () {
+                                    setState(() {
+                                      _aiWindowOpen = !_aiWindowOpen;
+                                    });
+                                  })),
+                      // TabBar
+                      Container(
+                        color: Theme.of(context).colorScheme.inversePrimary,
 
-                          _onItemTapped(0);
-                          // Then close the drawer
-                          Navigator.pop(context);
-                        },
-                      ),
-                      ListTile(
-                        title: const Text('Open'),
-                        selected: _selectedIndex == 1,
-                        onTap: () async {
-                          var value = await OpenAction(context_root)
-                              .invoke(OpenIntent());
-                          setState(() {
-                            if (value.$1 != null && value.$2 != null) {
-                              setState(() {
-                                _tabIndex += 1;
-                                _Graphs.insert(
-                                    _tabIndex - 1,
-                                    Graph(
-                                        mykey: GlobalKey(),
-                                        gs: value.$1!,
-                                        graphName: value.$2!));
-                              });
-                            } else {
-                              print('open error');
-                            }
-                          });
-
-                          _onItemTapped(1);
-                          // Then close the drawer
-                          Navigator.pop(context);
-                        },
-                      ),
-                      ListTile(
-                        title: const Text('Save'),
-                        selected: _selectedIndex == 2,
-                        onTap: () async {
-                          SaveAction(context, _Graphs[_tabIndex - 1].gs)
-                              .invoke(SaveIntent());
-                          captureImage(_Graphs[_tabIndex - 1].mykey,
-                              _Graphs[_tabIndex - 1].graphName);
-                          _onItemTapped(2);
-                          // Then close the drawer
-                          Navigator.pop(context);
-                        },
+                        child: Row(
+                            children: <Widget>[
+                                  IconButton(
+                                    icon: Icon(Icons.home),
+                                    onPressed: () {
+                                      // 按钮被点击时的操作
+                                      setState(() {
+                                        _tabIndex = 0;
+                                      });
+                                    },
+                                  ),
+                                ] +
+                                List<Widget>.generate(
+                                  _Graphs.length,
+                                  (index) => Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                          color:
+                                              Color.fromARGB(31, 226, 213, 213),
+                                          width: 1.0),
+                                    ),
+                                    child: Container(
+                                        color: index == _tabIndex - 1
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .inversePrimary
+                                            : getLighterColor(
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .inversePrimary,
+                                                0.5),
+                                        child: Row(
+                                          children: [
+                                            TextButton(
+                                              style: TextButton.styleFrom(
+                                                textStyle:
+                                                    GoogleFonts.merriweather(
+                                                        fontSize: 15.0),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius
+                                                      .zero, // 将边框半径设置为零以获得方角矩形
+                                                ),
+                                                elevation: 0,
+                                                foregroundColor:
+                                                    index == _tabIndex - 1
+                                                        ? Theme.of(context)
+                                                            .colorScheme
+                                                            .inversePrimary
+                                                        : getLighterColor(
+                                                            Theme.of(context)
+                                                                .colorScheme
+                                                                .inversePrimary,
+                                                            0.5),
+                                              ),
+                                              onPressed: () {
+                                                // 按钮被点击时的操作
+                                                setState(() {
+                                                  _tabIndex = index + 1;
+                                                });
+                                              },
+                                              child: Text(
+                                                _Graphs[index].graphName,
+                                                style: GoogleFonts.merriweather(
+                                                    fontSize: 15.0,
+                                                    color: Colors.black),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(Icons.close),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: Colors.black,
+                                                backgroundColor:
+                                                    index == _tabIndex - 1
+                                                        ? Theme.of(context)
+                                                            .colorScheme
+                                                            .inversePrimary
+                                                        : getLighterColor(
+                                                            Theme.of(context)
+                                                                .colorScheme
+                                                                .inversePrimary,
+                                                            0.5),
+                                              ),
+                                              onPressed: () {
+                                                setState(() {
+                                                  _Graphs.removeAt(index);
+                                                  if (index == _tabIndex - 1)
+                                                    _tabIndex -= 1;
+                                                });
+                                              },
+                                            ),
+                                          ],
+                                        )),
+                                  ),
+                                )),
+                        // graph view
                       ),
                     ],
                   ),
-                ),
-                // 自定义tabBar包含了顶部tab和下面的页面内容
-                body: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    // TabBar
-                    Container(
-                      color: Theme.of(context).colorScheme.inversePrimary,
-
-                      child: Row(
-                          children: <Widget>[
-                                IconButton(
-                                  icon: Icon(Icons.home),
-                                  onPressed: () {
-                                    // 按钮被点击时的操作
-                                    setState(() {
-                                      _tabIndex = 0;
-                                    });
-                                  },
-                                ),
-                              ] +
-                              List<Widget>.generate(
-                                _Graphs.length,
-                                (index) => Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                        color:
-                                            Color.fromARGB(31, 226, 213, 213),
-                                        width: 1.0),
-                                  ),
-                                  child: Container(
-                                      color: index == _tabIndex - 1
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .inversePrimary
-                                          : getLighterColor(
-                                              Theme.of(context)
-                                                  .colorScheme
-                                                  .inversePrimary,
-                                              0.5),
-                                      child: Row(
-                                        children: [
-                                          TextButton(
-                                            style: TextButton.styleFrom(
-                                              textStyle:
-                                                  GoogleFonts.merriweather(
-                                                      fontSize: 15.0),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius
-                                                    .zero, // 将边框半径设置为零以获得方角矩形
-                                              ),
-                                              elevation: 0,
-                                              foregroundColor:
-                                                  index == _tabIndex - 1
-                                                      ? Theme.of(context)
-                                                          .colorScheme
-                                                          .inversePrimary
-                                                      : getLighterColor(
-                                                          Theme.of(context)
-                                                              .colorScheme
-                                                              .inversePrimary,
-                                                          0.5),
-                                            ),
-                                            onPressed: () {
-                                              // 按钮被点击时的操作
-                                              setState(() {
-                                                _tabIndex = index + 1;
-                                              });
-                                            },
-                                            child: Text(
-                                              _Graphs[index].graphName,
-                                              style: GoogleFonts.merriweather(
-                                                  fontSize: 15.0,
-                                                  color: Colors.black),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: Icon(Icons.close),
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: Colors.black,
-                                              backgroundColor:
-                                                  index == _tabIndex - 1
-                                                      ? Theme.of(context)
-                                                          .colorScheme
-                                                          .inversePrimary
-                                                      : getLighterColor(
-                                                          Theme.of(context)
-                                                              .colorScheme
-                                                              .inversePrimary,
-                                                          0.5),
-                                            ),
-                                            onPressed: () {
-                                              setState(() {
-                                                _Graphs.removeAt(index);
-                                                if (index == _tabIndex - 1)
-                                                  _tabIndex -= 1;
-                                              });
-                                            },
-                                          ),
-                                        ],
-                                      )),
-                                ),
-                              )),
-                      // graph view
-                    ),
-                    Expanded(
-                            child: IndexedStack(
-                                index: _tabIndex,
-                                children: <Widget>[
-                                      home(
-                                        parentOpenNewPage: openNewPage,
-                                      )
-                                    ] +
-                                    _Graphs))
-                  ],
-                ),
-              );
-            })));
+                ))),
+      );
+    });
   }
 
   void openNewPage(
