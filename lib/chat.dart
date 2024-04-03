@@ -22,6 +22,8 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 
+import 'messages.dart';
+
 String _apiKey = Platform.environment['API_KEY'] ?? "";
 
 class ChatWidget extends StatefulWidget {
@@ -75,9 +77,10 @@ class _ChatWidgetState extends State<ChatWidget> {
 
   @override
   Widget build(BuildContext context) {
+    var messages = AppLocalizations.of(context)!;
     final textFieldDecoration = InputDecoration(
       contentPadding: const EdgeInsets.all(15),
-      hintText: 'Enter a prompt...',
+      hintText: messages['enterAPrompt'],
       border: OutlineInputBorder(
         borderRadius: const BorderRadius.all(
           Radius.circular(14),
@@ -117,10 +120,9 @@ class _ChatWidgetState extends State<ChatWidget> {
                     itemCount: _generatedContent.length,
                   )
                 : ListView(
-                    children: const [
+                    children: [
                       Text(
-                        'No API key found. Please provide an API Key using '
-                        "'--dart-define' to set the 'API_KEY' declaration.",
+                        messages['aiApiIllustrate']
                       ),
                     ],
                   ),

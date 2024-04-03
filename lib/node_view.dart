@@ -9,6 +9,7 @@ import 'setting.dart';
 import 'utils.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:graph_note/messages.dart';
 
 class NodeView extends StatefulWidget {
   Node node;
@@ -166,6 +167,7 @@ class _NodeViewState extends State<NodeView> {
 
   void showOptions(BuildContext context, List<IntegerNodeWithJson> nodes,
       TapUpDetails? details, SettingState settingState) {
+    var messages = AppLocalizations.of(context)!;
     final RenderBox button = context.findRenderObject() as RenderBox;
     final Offset offset = button.localToGlobal(Offset.zero);
 
@@ -179,7 +181,7 @@ class _NodeViewState extends State<NodeView> {
       ),
       items: [
         PopupMenuItem(
-          child: Text('create related node'),
+          child: Text(messages['createRelatedNode'],),
           onTap: () {
             setState(() {
               widget.gs
@@ -189,7 +191,7 @@ class _NodeViewState extends State<NodeView> {
           },
         ),
         PopupMenuItem(
-          child: Text('create parent node'),
+          child: Text(messages['createParentNode'],),
           onTap: () {
             setState(() {
               widget.gs
@@ -199,7 +201,7 @@ class _NodeViewState extends State<NodeView> {
           },
         ),
         PopupMenuItem(
-          child: Text('create child node'),
+          child: Text(messages['createChildNode'],),
           onTap: () {
             widget.gs.addRelatedNode(nodes, RelationType.child, settingState);
             widget.onUpdate();

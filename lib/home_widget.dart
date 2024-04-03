@@ -57,11 +57,6 @@ class home extends StatelessWidget {
                       children: snapshot.data!
                           .map(
                             (file) =>
-//                                Container(
-//                              padding:
-//                                  const EdgeInsets.fromLTRB(10, 10, 10, 10),
-//                              color: Colors.green,
-//                              child:
                               Column(
                                 children: [
                                   Expanded(
@@ -91,13 +86,11 @@ class home extends StatelessWidget {
                                                 ),
                                               ),
                                             ),
-//                                          ),
-//                                          Expanded(flex: 1, child: Container()),
+                                          Expanded(flex: 1, child: Container()),
                                         ],
                                       )),
                                   Expanded(flex: 1, child: Text(basenameWithoutExtension(file.path)))
                                 ],
-//                              ),
                             ),
                           )
                           .toList()),

@@ -1,0 +1,20 @@
+const Map<String, String> en = {
+  'interactiveViewer': 'InteractiveViewer',
+  'drawerHeader': 'Drawer Headrer',
+  'saveToDataDir': 'Save to data dir',
+  'open': 'Open',
+  'new': 'New',
+  'save': 'Save',
+  'createRelatedNode': 'create related node',
+  'createParentNode': 'create parent node',
+  'createChildNode': 'create child node',
+  'fontSize': 'font size',
+  'fontStyle': 'font style',
+  'randomTheme': 'random theme',
+  'increment': 'Increment',
+  'screenshot': 'screenshot',
+  'aiChat': 'AI聊天',
+  'aiApiIllustrate': 'No API key found. Please provide an API Key using '
+      "'--dart-define' to set the 'API_KEY' declaration.",
+  'enterAPrompt': 'Enter a Prompt...',
+};

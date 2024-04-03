@@ -22,6 +22,9 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'chat.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:graph_note/messages.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // import 'package:flutter_gemini/flutter_gemini.dart';
 
@@ -63,8 +66,51 @@ void main() async {
   return runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget  {
   const MyApp({super.key});
+
+  static void setLocale(BuildContext context, Locale newLocale) {
+    _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
+    state.setLocale(newLocale);
+  }
+
+  @override
+  _MyAppState createState() => _MyAppState();
+
+}
+
+class _MyAppState extends State<MyApp> {
+
+  Locale _locale = const Locale('zh', ''); // 默认语言为英文
+//_loadLocaleFromPreferences 方法从 SharedPreferences 中加载用户偏好设置的语言环境。如果存在保存的语言代码，就将其更新到 _locale 变量中。
+  Future<void> _loadLocaleFromPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? languageCode = prefs.getString('languageCode');
+    if (languageCode != null) {
+      setState(() {
+        _locale = Locale(languageCode, '');
+      });
+    }
+  }
+
+//_saveLocaleToPreferences 方法用于将选择的语言环境保存到 SharedPreferences 中，以便下次启动应用时可以加载该语言环境。
+  Future<void> _saveLocaleToPreferences(Locale locale) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('languageCode', locale.languageCode);
+  }
+
+  void setLocale(Locale newLocale) {
+    _saveLocaleToPreferences(newLocale);
+    setState(() {
+      _locale = newLocale;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocaleFromPreferences();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +148,16 @@ class MyApp extends StatelessWidget {
                   displaySmall: GoogleFonts.pacifico(),
                 ),
               ),
+              localizationsDelegates: const [
+                AppLocalizationsDelegate(),
+                ...GlobalMaterialLocalizations.delegates,
+                GlobalWidgetsLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('en', ''),
+                Locale('zh', ''),
+              ],
+              locale: _locale, // 设置当前语言
               home: MultiGraph());
         }));
   }
@@ -217,6 +273,15 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  void _toggleLanguage(BuildContext context) {
+    var currentLocale = Localizations.localeOf(context);
+    var newLocale = currentLocale.languageCode == 'en'
+        ? const Locale('zh', '')
+        : const Locale('en', '');
+
+    MyApp.setLocale(context, newLocale);
+  }
+
   bool _loading = false;
 
   bool get loading => _loading;
@@ -225,15 +290,17 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
   bool _aiWindowOpen = false;
   @override
   Widget build(BuildContext context_root) {
+    var messages = AppLocalizations.of(context_root)!;
     return Consumer<SettingState>(builder: (context, settingState, child) {
       print("widget using Consumer rebuilt");
       return Scaffold(
         appBar: AppBar(
-            title: const Text('InteractiveViewer'),
+            title: Text(messages['interactiveViewer'],),
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,
             actions: [
+
               SettingItem(
-                settingDesc: "font size",
+                settingDesc: messages['fontSize'],
                 child: DropdownMenu<String>(
                   menuHeight: 400,
                   initialSelection: settingState.fontSize.toString(),
@@ -249,7 +316,7 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
                 ),
               ),
               SettingItem(
-                  settingDesc: "font style",
+                  settingDesc: messages['fontStyle'],
                   child: Consumer<SettingState>(
                       builder: (context, settingState, child) {
                     print("widget using Consumer settingState rebuilt");
@@ -269,11 +336,18 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
                     );
                   })),
               IconButton(
+                icon: Icon(Icons.g_translate),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () => _toggleLanguage(context)
+              ),
+              IconButton(
                 icon: Icon(Icons.psychology_alt),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.black,
                 ),
-                tooltip: "随机主题",
+                tooltip: messages['randomTheme'],
                 onPressed: () {
                   setState(() {
                     settingState.mainColor = getRandomColor();
@@ -285,7 +359,7 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.black,
                 ),
-                tooltip: "截屏",
+                tooltip: messages['screenshot'],
                 onPressed: () {
                   windowManager.minimize();
                   ScreenshotAction().invoke(ScreenshotIntent());
@@ -297,14 +371,14 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              const DrawerHeader(
+              DrawerHeader(
                 // decoration: BoxDecoration(
                 //   color: Colors.blue,
                 // ),
-                child: Text('Drawer Header'),
+                child: Text(messages['drawerHeader']),
               ),
               ListTile(
-                title: const Text('Save to data dir'),
+                title: Text(messages['saveToDataDir']),
                 onTap: () {
                   saveToDocumentsDirectory(_Graphs[_tabIndex - 1].gs,
                       _Graphs[_tabIndex - 1].graphName);
@@ -314,7 +388,7 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
                 },
               ),
               ListTile(
-                title: const Text('New'),
+                title: Text(messages['new']),
                 selected: _selectedIndex == 0,
                 onTap: () async {
                   String? fileName = await _showNameDialog(context);
@@ -340,7 +414,7 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
                 },
               ),
               ListTile(
-                title: const Text('Open'),
+                title: Text(messages['open'],),
                 selected: _selectedIndex == 1,
                 onTap: () async {
                   var value =
@@ -367,7 +441,9 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
                 },
               ),
               ListTile(
-                title: const Text('Save'),
+                title: Text(
+                    messages['save'],
+                ),
                 selected: _selectedIndex == 2,
                 onTap: () async {
                   SaveAction(context, _Graphs[_tabIndex - 1].gs)
@@ -429,7 +505,7 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
                           if (_aiWindowOpen)
                             Positioned(
                                 left: 0,
-                                top: 50,
+                                top: 107,
                                 width: MediaQuery.of(context).size.width / 4,
                                 height:
                                     MediaQuery.of(context).size.height / 1.5,
@@ -468,7 +544,7 @@ class _MultiGraphState extends State<MultiGraph> with WidgetsBindingObserver {
                                   : Icon(Icons.add),
                               backgroundColor: settingState.mainColor,
                               hoverElevation: 5.0,
-                              tooltip: 'Ai Chat',
+                              tooltip: messages['aiChat'],
                               onPressed: () {
                                 setState(() {
                                   _aiWindowOpen = !_aiWindowOpen;
